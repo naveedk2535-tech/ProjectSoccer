@@ -1,0 +1,393 @@
+{% extends "base.html" %}
+{% block title %}{{ home_team }} vs {{ away_team }}{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Match Header -->
+    <div class="glass rounded-xl p-6">
+        <div class="flex items-center justify-between">
+            <a href="/" class="text-xs text-gray-500 hover:text-gray-300 transition">&larr; Back to Command Center</a>
+            <span class="text-xs text-gray-600 font-mono">{{ league_config.name }}</span>
+        </div>
+        <div class="flex items-center justify-center mt-6 space-x-8">
+            <!-- Home Team -->
+            <div class="text-center flex-1">
+                <p class="text-2xl font-bold text-white">{{ home_team }}</p>
+                <p class="text-xs text-gray-500 mt-1 uppercase">Home</p>
+            </div>
+
+            <!-- VS / Prediction -->
+            <div class="text-center">
+                {% if prediction %}
+                <div class="flex items-center space-x-4">
+                    <div class="text-center px-4 py-3 rounded-xl {% if prediction.home_win > prediction.draw and prediction.home_win > prediction.away_win %}bg-green-900/30 border border-green-700/30 glow-green{% else %}bg-dark-700{% endif %}">
+                        <p class="text-[10px] text-gray-500 uppercase">Home</p>
+                        <p class="text-2xl font-bold font-mono {% if prediction.home_win > 0.5 %}text-green-400{% else %}text-gray-200{% endif %}">
+                            {{ (prediction.home_win * 100)|round(0)|int }}%
+                        </p>
+                        <p class="text-xs text-gray-500 font-mono">{{ prediction.implied_odds.home }}</p>
+                    </div>
+                    <div class="text-center px-4 py-3 rounded-xl {% if prediction.draw > prediction.home_win and prediction.draw > prediction.away_win %}bg-yellow-900/30 border border-yellow-700/30{% else %}bg-dark-700{% endif %}">
+                        <p class="text-[10px] text-gray-500 uppercase">Draw</p>
+                        <p class="text-2xl font-bold font-mono text-gray-200">
+                            {{ (prediction.draw * 100)|round(0)|int }}%
+                        </p>
+                        <p class="text-xs text-gray-500 font-mono">{{ prediction.implied_odds.draw }}</p>
+                    </div>
+                    <div class="text-center px-4 py-3 rounded-xl {% if prediction.away_win > prediction.home_win and prediction.away_win > prediction.draw %}bg-blue-900/30 border border-blue-700/30 glow-blue{% else %}bg-dark-700{% endif %}">
+                        <p class="text-[10px] text-gray-500 uppercase">Away</p>
+                        <p class="text-2xl font-bold font-mono {% if prediction.away_win > 0.5 %}text-blue-400{% else %}text-gray-200{% endif %}">
+                            {{ (prediction.away_win * 100)|round(0)|int }}%
+                        </p>
+                        <p class="text-xs text-gray-500 font-mono">{{ prediction.implied_odds.away }}</p>
+                    </div>
+                </div>
+                <div class="mt-3 flex items-center justify-center space-x-4 text-xs">
+                    {% if prediction.most_likely_score %}
+                    <span class="text-gray-400">Most likely: <span class="text-white font-mono font-bold">{{ prediction.most_likely_score }}</span></span>
+                    {% endif %}
+                    {% if prediction.confidence %}
+                    <span class="text-gray-400">Confidence: <span class="font-mono {% if prediction.confidence > 0.3 %}text-green-400{% elif prediction.confidence > 0.15 %}text-yellow-400{% else %}text-red-400{% endif %}">{{ (prediction.confidence * 100)|round(0)|int }}%</span></span>
+                    {% endif %}
+                </div>
+                {% else %}
+                <div class="text-4xl font-bold text-gray-700">VS</div>
+                <p class="text-xs text-gray-600 mt-2">No prediction available</p>
+                {% endif %}
+            </div>
+
+            <!-- Away Team -->
+            <div class="text-center flex-1">
+                <p class="text-2xl font-bold text-white">{{ away_team }}</p>
+                <p class="text-xs text-gray-500 mt-1 uppercase">Away</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Grid -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Model Breakdown (2 cols) -->
+        <div class="lg:col-span-2 space-y-6">
+            <!-- Individual Model Signals -->
+            {% if prediction and prediction.model_details %}
+            <div class="glass rounded-xl overflow-hidden">
+                <div class="px-6 py-4 border-b border-gray-800">
+                    <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider">Model Signals</h3>
+                    <p class="text-xs text-gray-600">{{ prediction.models_available }} models contributing</p>
+                </div>
+                <div class="p-6">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {% for model_name, detail in prediction.model_details.items() %}
+                        <div class="bg-dark-700/50 rounded-lg p-4">
+                            <div class="flex items-center justify-between mb-3">
+                                <span class="text-sm font-medium text-white capitalize">{{ model_name }}</span>
+                                <span class="text-xs text-gray-500 font-mono">w={{ (detail.weight * 100)|round(0)|int }}%</span>
+                            </div>
+                            <!-- Probability bars -->
+                            <div class="space-y-2">
+                                <div class="flex items-center space-x-2">
+                                    <span class="text-[10px] text-gray-500 w-6">H</span>
+                                    <div class="flex-1 h-2 bg-dark-600 rounded-full overflow-hidden">
+                                        <div class="h-full bg-green-500 rounded-full" style="width: {{ (detail.home_win * 100)|round(0)|int }}%"></div>
+                                    </div>
+                                    <span class="text-xs text-gray-400 font-mono w-10 text-right">{{ (detail.home_win * 100)|round(0)|int }}%</span>
+                                </div>
+                                <div class="flex items-center space-x-2">
+                                    <span class="text-[10px] text-gray-500 w-6">D</span>
+                                    <div class="flex-1 h-2 bg-dark-600 rounded-full overflow-hidden">
+                                        <div class="h-full bg-yellow-500 rounded-full" style="width: {{ (detail.draw * 100)|round(0)|int }}%"></div>
+                                    </div>
+                                    <span class="text-xs text-gray-400 font-mono w-10 text-right">{{ (detail.draw * 100)|round(0)|int }}%</span>
+                                </div>
+                                <div class="flex items-center space-x-2">
+                                    <span class="text-[10px] text-gray-500 w-6">A</span>
+                                    <div class="flex-1 h-2 bg-dark-600 rounded-full overflow-hidden">
+                                        <div class="h-full bg-blue-500 rounded-full" style="width: {{ (detail.away_win * 100)|round(0)|int }}%"></div>
+                                    </div>
+                                    <span class="text-xs text-gray-400 font-mono w-10 text-right">{{ (detail.away_win * 100)|round(0)|int }}%</span>
+                                </div>
+                            </div>
+                            <!-- Model-specific extras -->
+                            <div class="mt-3 text-[10px] text-gray-600 space-y-0.5">
+                                {% if detail.home_lambda %}
+                                <p>xG: {{ detail.home_lambda }} - {{ detail.away_lambda }} | Score: {{ detail.most_likely_score }}</p>
+                                {% endif %}
+                                {% if detail.elo_diff is defined %}
+                                <p>Elo diff: {{ detail.elo_diff }} | Form: {{ detail.home_form }}/15 vs {{ detail.away_form }}/15</p>
+                                {% endif %}
+                                {% if detail.home_signal %}
+                                <p>Sentiment: {{ detail.home_signal }} vs {{ detail.away_signal }}</p>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Scoreline Heatmap -->
+            {% if prediction and prediction.scoreline_matrix %}
+            <div class="glass rounded-xl overflow-hidden">
+                <div class="px-6 py-4 border-b border-gray-800">
+                    <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider">Scoreline Probability Matrix</h3>
+                </div>
+                <div class="p-6">
+                    <canvas id="heatmapChart" width="400" height="300"></canvas>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Over/Under + BTTS -->
+            {% if prediction %}
+            <div class="grid grid-cols-2 gap-4">
+                {% if prediction.over25 %}
+                <div class="glass rounded-xl p-5">
+                    <h4 class="text-xs text-gray-500 uppercase tracking-wider">Over / Under 2.5 Goals</h4>
+                    <div class="mt-3 flex items-center space-x-4">
+                        <div class="flex-1">
+                            <div class="flex items-center justify-between mb-1">
+                                <span class="text-xs text-gray-400">Over</span>
+                                <span class="text-sm font-mono text-white">{{ (prediction.over25 * 100)|round(0)|int }}%</span>
+                            </div>
+                            <div class="h-3 bg-dark-600 rounded-full overflow-hidden">
+                                <div class="h-full rounded-full bg-gradient-to-r from-green-600 to-green-400" style="width: {{ (prediction.over25 * 100)|round(0)|int }}%"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+                {% if prediction.btts %}
+                <div class="glass rounded-xl p-5">
+                    <h4 class="text-xs text-gray-500 uppercase tracking-wider">Both Teams To Score</h4>
+                    <div class="mt-3 flex items-center space-x-4">
+                        <div class="flex-1">
+                            <div class="flex items-center justify-between mb-1">
+                                <span class="text-xs text-gray-400">Yes</span>
+                                <span class="text-sm font-mono text-white">{{ (prediction.btts * 100)|round(0)|int }}%</span>
+                            </div>
+                            <div class="h-3 bg-dark-600 rounded-full overflow-hidden">
+                                <div class="h-full rounded-full bg-gradient-to-r from-purple-600 to-purple-400" style="width: {{ (prediction.btts * 100)|round(0)|int }}%"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+            {% endif %}
+
+            <!-- Head to Head -->
+            <div class="glass rounded-xl overflow-hidden">
+                <div class="px-6 py-4 border-b border-gray-800">
+                    <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider">Head to Head</h3>
+                </div>
+                <div class="divide-y divide-gray-800/50">
+                    {% for m in h2h_matches %}
+                    <div class="px-6 py-3 flex items-center justify-between text-sm">
+                        <span class="text-xs text-gray-500 font-mono w-24">{{ m.match_date }}</span>
+                        <span class="flex-1 text-right text-gray-300 {% if m.ft_result == 'H' %}font-bold text-white{% endif %}">{{ m.home_team }}</span>
+                        <span class="px-4 font-mono text-white font-bold">{{ m.ft_home_goals }} - {{ m.ft_away_goals }}</span>
+                        <span class="flex-1 text-gray-300 {% if m.ft_result == 'A' %}font-bold text-white{% endif %}">{{ m.away_team }}</span>
+                    </div>
+                    {% else %}
+                    <div class="px-6 py-8 text-center text-gray-600 text-sm">No head-to-head data available</div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Sidebar -->
+        <div class="space-y-6">
+            <!-- Value Bets for this match -->
+            {% if value_bets %}
+            <div class="glass rounded-xl overflow-hidden glow-green">
+                <div class="px-5 py-4 border-b border-gray-800">
+                    <h3 class="text-sm font-semibold text-green-400 uppercase tracking-wider">Value Bets Found</h3>
+                </div>
+                {% for vb in value_bets %}
+                <div class="px-5 py-4 border-b border-gray-800/50">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm font-medium text-white">{{ vb.bet_type|replace('_', ' ')|title }}</p>
+                            <p class="text-xs text-gray-500 mt-1">{{ vb.best_bookmaker }}</p>
+                        </div>
+                        <div class="text-right">
+                            <p class="text-xl font-bold text-green-400 font-mono">+{{ vb.edge_percent }}%</p>
+                        </div>
+                    </div>
+                    <div class="mt-3 grid grid-cols-3 gap-2 text-center text-xs">
+                        <div class="bg-dark-700 rounded p-2">
+                            <p class="text-gray-500">Model</p>
+                            <p class="text-white font-mono">{{ (vb.model_probability * 100)|round(1) }}%</p>
+                        </div>
+                        <div class="bg-dark-700 rounded p-2">
+                            <p class="text-gray-500">Best Odds</p>
+                            <p class="text-white font-mono">{{ vb.best_odds }}</p>
+                        </div>
+                        <div class="bg-dark-700 rounded p-2">
+                            <p class="text-gray-500">Kelly</p>
+                            <p class="text-white font-mono">{{ vb.kelly_stake }}%</p>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <!-- Bookmaker Odds -->
+            {% if best_odds and best_odds.all_bookmakers %}
+            <div class="glass rounded-xl overflow-hidden">
+                <div class="px-5 py-4 border-b border-gray-800">
+                    <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider">Bookmaker Odds</h3>
+                </div>
+                <table class="w-full text-xs">
+                    <thead>
+                        <tr class="border-b border-gray-800/50 text-gray-600">
+                            <th class="px-4 py-2 text-left">Bookmaker</th>
+                            <th class="px-2 py-2 text-center">H</th>
+                            <th class="px-2 py-2 text-center">D</th>
+                            <th class="px-2 py-2 text-center">A</th>
+                            <th class="px-2 py-2 text-center">Margin</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-800/30">
+                        {% for bk in best_odds.all_bookmakers[:10] %}
+                        <tr class="hover:bg-dark-700/50">
+                            <td class="px-4 py-1.5 text-gray-400">{{ bk.bookmaker }}</td>
+                            <td class="px-2 py-1.5 text-center font-mono text-gray-300">{{ bk.home_odds|round(2) if bk.home_odds else '—' }}</td>
+                            <td class="px-2 py-1.5 text-center font-mono text-gray-300">{{ bk.draw_odds|round(2) if bk.draw_odds else '—' }}</td>
+                            <td class="px-2 py-1.5 text-center font-mono text-gray-300">{{ bk.away_odds|round(2) if bk.away_odds else '—' }}</td>
+                            <td class="px-2 py-1.5 text-center font-mono {% if bk.margin and bk.margin < 5 %}text-green-400{% else %}text-gray-500{% endif %}">{{ bk.margin|round(1) if bk.margin else '—' }}%</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% endif %}
+
+            <!-- Sentiment -->
+            <div class="glass rounded-xl p-5">
+                <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">Sentiment</h3>
+                <div class="space-y-4">
+                    {% for label, sent in [('Home', home_sentiment), ('Away', away_sentiment)] %}
+                    <div>
+                        <div class="flex items-center justify-between text-xs mb-1">
+                            <span class="text-gray-400">{{ label }}</span>
+                            {% if sent and sent.combined_score %}
+                            <span class="font-mono {% if sent.combined_score > 0.1 %}text-green-400{% elif sent.combined_score < -0.1 %}text-red-400{% else %}text-gray-400{% endif %}">
+                                {{ sent.combined_score|round(2) }}
+                            </span>
+                            {% else %}
+                            <span class="text-gray-600">No data</span>
+                            {% endif %}
+                        </div>
+                        <div class="h-2 bg-dark-600 rounded-full overflow-hidden">
+                            {% if sent and sent.combined_score %}
+                            <div class="h-full rounded-full {% if sent.combined_score > 0 %}bg-green-500{% else %}bg-red-500{% endif %}"
+                                 style="width: {{ ((sent.combined_score + 1) / 2 * 100)|round(0)|int }}%; margin-left: {% if sent.combined_score < 0 %}{{ ((sent.combined_score + 1) / 2 * 100)|round(0)|int }}%{% else %}50%{% endif %}"></div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Recent Form -->
+            <div class="glass rounded-xl p-5">
+                <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">Recent Form</h3>
+                {% for label, form, team in [('Home', home_form, home_team), ('Away', away_form, away_team)] %}
+                <div class="{% if not loop.first %}mt-4{% endif %}">
+                    <p class="text-xs text-gray-500 mb-2">{{ team }}</p>
+                    <div class="flex space-x-1">
+                        {% for m in form %}
+                        {% set result = m.ft_result if m.home_team == team else ('H' if m.ft_result == 'A' else ('A' if m.ft_result == 'H' else 'D')) %}
+                        <div class="w-7 h-7 rounded flex items-center justify-center text-xs font-bold text-white
+                            {% if result == 'H' %}bg-green-600{% elif result == 'D' %}bg-yellow-600{% else %}bg-red-600{% endif %}">
+                            {{ 'W' if result == 'H' else ('D' if result == 'D' else 'L') }}
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if prediction and prediction.scoreline_matrix %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const matrix = {{ prediction.scoreline_matrix|tojson_safe }};
+    const ctx = document.getElementById('heatmapChart').getContext('2d');
+
+    // Convert matrix to chart data
+    const labels = ['0', '1', '2', '3', '4', '5', '6'];
+    const datasets = [];
+
+    for (let i = 0; i < 7; i++) {
+        for (let j = 0; j < 7; j++) {
+            const prob = (matrix[i][j] * 100).toFixed(1);
+            datasets.push({x: j, y: i, v: parseFloat(prob)});
+        }
+    }
+
+    // Simple bar chart showing top 10 most likely scores
+    const scores = [];
+    for (let i = 0; i < 7; i++) {
+        for (let j = 0; j < 7; j++) {
+            scores.push({label: `${i}-${j}`, prob: matrix[i][j] * 100});
+        }
+    }
+    scores.sort((a, b) => b.prob - a.prob);
+    const top10 = scores.slice(0, 12);
+
+    new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: top10.map(s => s.label),
+            datasets: [{
+                data: top10.map(s => s.prob),
+                backgroundColor: top10.map(s => {
+                    const [h, a] = s.label.split('-').map(Number);
+                    if (h > a) return 'rgba(16, 185, 129, 0.6)';
+                    if (h < a) return 'rgba(59, 130, 246, 0.6)';
+                    return 'rgba(245, 158, 11, 0.6)';
+                }),
+                borderColor: top10.map(s => {
+                    const [h, a] = s.label.split('-').map(Number);
+                    if (h > a) return '#10b981';
+                    if (h < a) return '#3b82f6';
+                    return '#f59e0b';
+                }),
+                borderWidth: 1,
+                borderRadius: 4,
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: (ctx) => `${ctx.parsed.y.toFixed(1)}% probability`
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    title: { display: true, text: 'Scoreline', color: '#6b7280', font: { size: 11 } },
+                    ticks: { color: '#9ca3af', font: { family: 'JetBrains Mono', size: 11 } },
+                    grid: { color: 'rgba(255,255,255,0.03)' }
+                },
+                y: {
+                    title: { display: true, text: 'Probability %', color: '#6b7280', font: { size: 11 } },
+                    ticks: { color: '#9ca3af', font: { family: 'JetBrains Mono', size: 11 } },
+                    grid: { color: 'rgba(255,255,255,0.03)' }
+                }
+            }
+        }
+    });
+});
+</script>
+{% endif %}
+{% endblock %}

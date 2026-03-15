@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% block title %}Model Performance{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <div>
+        <h1 class="text-2xl font-bold text-white">Model Performance</h1>
+        <p class="text-sm text-gray-500">Backtest results, calibration, and ROI tracking</p>
+    </div>
+
+    {% if performance %}
+    <!-- Performance Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+        {% for p in performance %}
+        <div class="glass rounded-xl p-5 stat-card">
+            <p class="text-xs text-gray-500 uppercase tracking-wider">{{ p.model_name }}</p>
+            <div class="mt-3 space-y-2">
+                <div class="flex justify-between text-sm">
+                    <span class="text-gray-400">Accuracy</span>
+                    <span class="font-mono text-white">{{ (p.accuracy * 100)|round(1) if p.accuracy else '—' }}%</span>
+                </div>
+                <div class="flex justify-between text-sm">
+                    <span class="text-gray-400">Brier Score</span>
+                    <span class="font-mono {% if p.brier_score and p.brier_score < 0.2 %}text-green-400{% else %}text-gray-300{% endif %}">
+                        {{ p.brier_score|round(4) if p.brier_score else '—' }}
+                    </span>
+                </div>
+                <div class="flex justify-between text-sm">
+                    <span class="text-gray-400">ROI</span>
+                    <span class="font-mono {% if p.roi_percent and p.roi_percent > 0 %}text-green-400{% else %}text-red-400{% endif %}">
+                        {% if p.roi_percent %}{{ '%+.1f'|format(p.roi_percent) }}%{% else %}—{% endif %}
+                    </span>
+                </div>
+                <div class="flex justify-between text-sm">
+                    <span class="text-gray-400">Yield</span>
+                    <span class="font-mono text-gray-300">
+                        {% if p.yield_percent %}{{ '%+.1f'|format(p.yield_percent) }}%{% else %}—{% endif %}
+                    </span>
+                </div>
+                <div class="flex justify-between text-sm">
+                    <span class="text-gray-400">Predictions</span>
+                    <span class="font-mono text-gray-300">{{ p.total_predictions or 0 }}</span>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Calibration Chart -->
+    <div class="glass rounded-xl overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-800">
+            <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider">Calibration Curve</h3>
+            <p class="text-xs text-gray-600">Does a 60% prediction win 60% of the time?</p>
+        </div>
+        <div class="p-6">
+            <canvas id="calibrationChart" width="600" height="300"></canvas>
+        </div>
+    </div>
+    {% else %}
+    <div class="glass rounded-xl p-12 text-center">
+        <p class="text-gray-500 text-lg">No backtest data yet</p>
+        <p class="text-gray-600 text-sm mt-2">Import historical data and run the backtest to see model performance.</p>
+        <p class="text-gray-700 text-xs mt-4 font-mono">python backtest.py --league PL</p>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const ctx = document.getElementById('calibrationChart');
+    if (!ctx) return;
+
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: ['10%', '20%', '30%', '40%', '50%', '60%', '70%', '80%', '90%'],
+            datasets: [{
+                label: 'Perfect Calibration',
+                data: [10, 20, 30, 40, 50, 60, 70, 80, 90],
+                borderColor: '#374151',
+                borderDash: [5, 5],
+                borderWidth: 1,
+                pointRadius: 0,
+                fill: false,
+            }, {
+                label: 'Ensemble Model',
+                data: [],  // populated from backtest
+                borderColor: '#3b82f6',
+                borderWidth: 2,
+                pointRadius: 4,
+                pointBackgroundColor: '#3b82f6',
+                fill: false,
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: { labels: { color: '#9ca3af', font: { size: 11 } } }
+            },
+            scales: {
+                x: {
+                    title: { display: true, text: 'Predicted Probability', color: '#6b7280' },
+                    ticks: { color: '#9ca3af' },
+                    grid: { color: 'rgba(255,255,255,0.03)' }
+                },
+                y: {
+                    title: { display: true, text: 'Observed Frequency', color: '#6b7280' },
+                    ticks: { color: '#9ca3af' },
+                    grid: { color: 'rgba(255,255,255,0.03)' }
+                }
+            }
+        }
+    });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}ProjectSoccer{% endblock %} — Prediction Engine</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.0/dist/cdn.min.js"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        dark: {
+                            900: '#0a0e17',
+                            800: '#111827',
+                            700: '#1a2234',
+                            600: '#243049',
+                            500: '#2d3a52',
+                        },
+                        accent: {
+                            green: '#10b981',
+                            red: '#ef4444',
+                            yellow: '#f59e0b',
+                            blue: '#3b82f6',
+                            purple: '#8b5cf6',
+                            cyan: '#06b6d4',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+        body { font-family: 'Inter', sans-serif; background: #0a0e17; }
+        .font-mono { font-family: 'JetBrains Mono', monospace; }
+        .glass { background: rgba(17, 24, 39, 0.8); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.05); }
+        .glow-green { box-shadow: 0 0 20px rgba(16, 185, 129, 0.15); }
+        .glow-red { box-shadow: 0 0 20px rgba(239, 68, 68, 0.15); }
+        .glow-blue { box-shadow: 0 0 20px rgba(59, 130, 246, 0.15); }
+        .pulse-dot { animation: pulse 2s infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+        .gradient-border { border-image: linear-gradient(135deg, #3b82f6, #8b5cf6, #06b6d4) 1; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #111827; }
+        ::-webkit-scrollbar-thumb { background: #374151; border-radius: 3px; }
+        .stat-card:hover { transform: translateY(-2px); transition: all 0.2s; }
+        .match-row:hover { background: rgba(59, 130, 246, 0.08); }
+    </style>
+</head>
+<body class="bg-dark-900 text-gray-100 min-h-screen">
+    <!-- Navigation -->
+    <nav class="glass sticky top-0 z-50 border-b border-gray-800">
+        <div class="max-w-screen-2xl mx-auto px-4">
+            <div class="flex items-center justify-between h-14">
+                <!-- Logo -->
+                <a href="/" class="flex items-center space-x-3">
+                    <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
+                        <span class="text-white font-bold text-sm">PS</span>
+                    </div>
+                    <span class="font-semibold text-lg text-white">ProjectSoccer</span>
+                    <span class="text-xs text-gray-500 font-mono">v1.0</span>
+                </a>
+
+                <!-- Nav Links -->
+                <div class="flex items-center space-x-1">
+                    <a href="/" class="px-3 py-2 rounded-lg text-sm {% if request.path == '/' %}bg-dark-600 text-white{% else %}text-gray-400 hover:text-white hover:bg-dark-700{% endif %} transition">
+                        Command Center
+                    </a>
+                    {% for code, lg in leagues.items() %}
+                    {% if lg.enabled %}
+                    <a href="/league/{{ code }}" class="px-3 py-2 rounded-lg text-sm {% if request.path == '/league/' + code %}bg-dark-600 text-white{% else %}text-gray-400 hover:text-white hover:bg-dark-700{% endif %} transition">
+                        {{ lg.name }}
+                    </a>
+                    {% endif %}
+                    {% endfor %}
+                    <a href="/sentiment" class="px-3 py-2 rounded-lg text-sm {% if request.path == '/sentiment' %}bg-dark-600 text-white{% else %}text-gray-400 hover:text-white hover:bg-dark-700{% endif %} transition">
+                        Sentiment
+                    </a>
+                    <a href="/performance" class="px-3 py-2 rounded-lg text-sm {% if request.path == '/performance' %}bg-dark-600 text-white{% else %}text-gray-400 hover:text-white hover:bg-dark-700{% endif %} transition">
+                        Performance
+                    </a>
+                </div>
+
+                <!-- Status -->
+                <div class="flex items-center space-x-4 text-xs text-gray-500">
+                    <div class="flex items-center space-x-1">
+                        <span class="w-2 h-2 rounded-full bg-green-500 pulse-dot"></span>
+                        <span>Live</span>
+                    </div>
+                    <span class="font-mono">{{ now.strftime('%H:%M UTC') if now else '' }}</span>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="max-w-screen-2xl mx-auto px-4 py-6">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Footer -->
+    <footer class="border-t border-gray-800 mt-8 py-4">
+        <div class="max-w-screen-2xl mx-auto px-4 flex items-center justify-between text-xs text-gray-600">
+            <span>ProjectSoccer Prediction Engine</span>
+            <div class="flex items-center space-x-4" x-data="{ usage: {} }" x-init="fetch('/api/usage').then(r=>r.json()).then(d=>usage=d)">
+                <template x-for="(info, api) in usage" :key="api">
+                    <span class="font-mono">
+                        <span x-text="api"></span>:
+                        <span x-text="info.used" class="text-gray-400"></span>/<span x-text="info.limit"></span>
+                    </span>
+                </template>
+            </div>
+        </div>
+    </footer>
+
+    {% block scripts %}{% endblock %}
+</body>
+</html>

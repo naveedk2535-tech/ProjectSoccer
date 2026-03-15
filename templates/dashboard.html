@@ -1,0 +1,290 @@
+{% extends "base.html" %}
+{% block title %}Command Center{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Header Stats Row -->
+    <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+        <!-- League Selector -->
+        <div class="glass rounded-xl p-4 stat-card col-span-2">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-xs text-gray-500 uppercase tracking-wider">Active League</p>
+                    <p class="text-2xl font-bold text-white mt-1">{{ league_config.name }}</p>
+                    <p class="text-xs text-gray-400 mt-1">{{ league_config.country }}</p>
+                </div>
+                <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500/20 to-purple-600/20 flex items-center justify-center">
+                    <span class="text-2xl">&#9917;</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Matches in DB -->
+        <div class="glass rounded-xl p-4 stat-card">
+            <p class="text-xs text-gray-500 uppercase tracking-wider">Historical Matches</p>
+            <p class="text-2xl font-bold text-white mt-1 font-mono">{{ match_count }}</p>
+            <p class="text-xs text-gray-400 mt-1">in database</p>
+        </div>
+
+        <!-- Upcoming -->
+        <div class="glass rounded-xl p-4 stat-card">
+            <p class="text-xs text-gray-500 uppercase tracking-wider">Upcoming</p>
+            <p class="text-2xl font-bold text-cyan-400 mt-1 font-mono">{{ fixtures|length }}</p>
+            <p class="text-xs text-gray-400 mt-1">fixtures loaded</p>
+        </div>
+
+        <!-- Value Bets -->
+        <div class="glass rounded-xl p-4 stat-card">
+            <p class="text-xs text-gray-500 uppercase tracking-wider">Value Bets</p>
+            <p class="text-2xl font-bold text-green-400 mt-1 font-mono">{{ value_bets|length }}</p>
+            <p class="text-xs text-gray-400 mt-1">active flags</p>
+        </div>
+
+        <!-- Model Status -->
+        <div class="glass rounded-xl p-4 stat-card">
+            <p class="text-xs text-gray-500 uppercase tracking-wider">Models</p>
+            <p class="text-2xl font-bold text-purple-400 mt-1 font-mono">4</p>
+            <p class="text-xs text-gray-400 mt-1">Poisson / Elo / XGB / Sent</p>
+        </div>
+    </div>
+
+    <!-- Main Grid -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Upcoming Fixtures + Predictions (2 cols) -->
+        <div class="lg:col-span-2 glass rounded-xl overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-800 flex items-center justify-between">
+                <div>
+                    <h2 class="text-lg font-semibold text-white">Upcoming Fixtures</h2>
+                    <p class="text-xs text-gray-500">Model predictions for next matches</p>
+                </div>
+                <button onclick="refreshData('fixtures')"
+                        class="px-3 py-1.5 rounded-lg bg-dark-600 hover:bg-dark-500 text-xs text-gray-300 transition">
+                    Refresh
+                </button>
+            </div>
+
+            <div class="divide-y divide-gray-800/50">
+                {% if fixtures %}
+                {% for f in fixtures %}
+                <a href="/match/{{ league }}/{{ f.home_team|replace(' ', '_') }}/{{ f.away_team|replace(' ', '_') }}"
+                   class="match-row block px-6 py-4 transition">
+                    <div class="flex items-center justify-between">
+                        <!-- Date -->
+                        <div class="w-20 text-center">
+                            <p class="text-xs text-gray-500">{{ f.match_date[:10] if f.match_date else '—' }}</p>
+                            <p class="text-xs text-gray-600 font-mono">{{ f.match_date[11:16] if f.match_date and f.match_date|length > 11 else '' }}</p>
+                        </div>
+
+                        <!-- Home Team -->
+                        <div class="flex-1 text-right pr-4">
+                            <span class="text-sm font-medium text-white">{{ f.home_team }}</span>
+                        </div>
+
+                        <!-- Prediction -->
+                        {% set pred = predictions[loop.index0].prediction if predictions|length > loop.index0 else None %}
+                        <div class="flex items-center space-x-2 w-48 justify-center">
+                            {% if pred %}
+                            <div class="text-center px-2 py-1 rounded {% if pred.ensemble_home and pred.ensemble_home > pred.ensemble_draw and pred.ensemble_home > pred.ensemble_away %}bg-green-900/30 border border-green-800/50{% else %}bg-dark-700{% endif %}">
+                                <p class="text-[10px] text-gray-500">H</p>
+                                <p class="text-sm font-mono {% if pred.ensemble_home and pred.ensemble_home > 0.5 %}text-green-400{% else %}text-gray-300{% endif %}">
+                                    {{ (pred.ensemble_home * 100)|round(0)|int if pred.ensemble_home else '—' }}%
+                                </p>
+                            </div>
+                            <div class="text-center px-2 py-1 rounded {% if pred.ensemble_draw and pred.ensemble_draw > pred.ensemble_home and pred.ensemble_draw > pred.ensemble_away %}bg-yellow-900/30 border border-yellow-800/50{% else %}bg-dark-700{% endif %}">
+                                <p class="text-[10px] text-gray-500">D</p>
+                                <p class="text-sm font-mono text-gray-300">
+                                    {{ (pred.ensemble_draw * 100)|round(0)|int if pred.ensemble_draw else '—' }}%
+                                </p>
+                            </div>
+                            <div class="text-center px-2 py-1 rounded {% if pred.ensemble_away and pred.ensemble_away > pred.ensemble_home and pred.ensemble_away > pred.ensemble_draw %}bg-blue-900/30 border border-blue-800/50{% else %}bg-dark-700{% endif %}">
+                                <p class="text-[10px] text-gray-500">A</p>
+                                <p class="text-sm font-mono {% if pred.ensemble_away and pred.ensemble_away > 0.5 %}text-blue-400{% else %}text-gray-300{% endif %}">
+                                    {{ (pred.ensemble_away * 100)|round(0)|int if pred.ensemble_away else '—' }}%
+                                </p>
+                            </div>
+                            {% else %}
+                            <div class="text-center">
+                                <span class="text-xs text-gray-600">No prediction yet</span>
+                            </div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Away Team -->
+                        <div class="flex-1 pl-4">
+                            <span class="text-sm font-medium text-white">{{ f.away_team }}</span>
+                        </div>
+
+                        <!-- Arrow -->
+                        <div class="w-8 text-right">
+                            <svg class="w-4 h-4 text-gray-600 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                            </svg>
+                        </div>
+                    </div>
+                </a>
+                {% endfor %}
+                {% else %}
+                <div class="px-6 py-12 text-center">
+                    <p class="text-gray-500">No upcoming fixtures loaded</p>
+                    <button onclick="refreshData('fixtures')"
+                            class="mt-4 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-sm transition">
+                        Load Fixtures
+                    </button>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Right Sidebar -->
+        <div class="space-y-6">
+            <!-- Value Bets Panel -->
+            <div class="glass rounded-xl overflow-hidden glow-green">
+                <div class="px-5 py-4 border-b border-gray-800">
+                    <h3 class="text-sm font-semibold text-green-400 uppercase tracking-wider">Value Bets</h3>
+                    <p class="text-xs text-gray-500">Edge > 5% vs bookmaker odds</p>
+                </div>
+                <div class="divide-y divide-gray-800/50">
+                    {% if value_bets %}
+                    {% for vb in value_bets %}
+                    <div class="px-5 py-3">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-xs text-gray-400">{{ vb.home_team }} v {{ vb.away_team }}</p>
+                                <p class="text-sm font-medium text-white mt-0.5">
+                                    {{ vb.bet_type|replace('_', ' ')|title }}
+                                    <span class="text-green-400 font-mono">@ {{ vb.best_odds }}</span>
+                                </p>
+                            </div>
+                            <div class="text-right">
+                                <p class="text-lg font-bold text-green-400 font-mono">+{{ vb.edge_percent }}%</p>
+                                <p class="text-[10px] text-gray-500">{{ vb.best_bookmaker }}</p>
+                            </div>
+                        </div>
+                        <div class="mt-2 flex items-center justify-between text-xs">
+                            <span class="text-gray-500">Model: {{ (vb.model_probability * 100)|round(1) }}%</span>
+                            <span class="text-gray-500">Kelly: {{ vb.kelly_stake }}%</span>
+                        </div>
+                    </div>
+                    {% endfor %}
+                    {% else %}
+                    <div class="px-5 py-8 text-center text-gray-600 text-sm">
+                        No value bets found yet.<br>
+                        <span class="text-xs">Load odds data to find edges.</span>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="glass rounded-xl p-5">
+                <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">Data Controls</h3>
+                <div class="space-y-2">
+                    <button onclick="refreshData('csv')"
+                            class="w-full px-4 py-2.5 rounded-lg bg-dark-600 hover:bg-dark-500 text-sm text-gray-300 text-left transition flex items-center justify-between">
+                        <span>Import Historical Data</span>
+                        <span class="text-xs text-gray-600 font-mono">CSV</span>
+                    </button>
+                    <button onclick="refreshData('fixtures')"
+                            class="w-full px-4 py-2.5 rounded-lg bg-dark-600 hover:bg-dark-500 text-sm text-gray-300 text-left transition flex items-center justify-between">
+                        <span>Fetch Upcoming Fixtures</span>
+                        <span class="text-xs text-gray-600 font-mono">API</span>
+                    </button>
+                    <button onclick="refreshData('odds')"
+                            class="w-full px-4 py-2.5 rounded-lg bg-dark-600 hover:bg-dark-500 text-sm text-gray-300 text-left transition flex items-center justify-between">
+                        <span>Fetch Latest Odds</span>
+                        <span class="text-xs text-gray-600 font-mono">API</span>
+                    </button>
+                    <button onclick="refreshData('all')"
+                            class="w-full px-4 py-2.5 rounded-lg bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-sm text-white text-left transition flex items-center justify-between">
+                        <span>Refresh Everything</span>
+                        <span class="text-xs text-blue-200 font-mono">ALL</span>
+                    </button>
+                </div>
+                <div id="refresh-status" class="mt-3 text-xs text-gray-600 font-mono hidden"></div>
+            </div>
+
+            <!-- League Standings Mini -->
+            <div class="glass rounded-xl overflow-hidden">
+                <div class="px-5 py-4 border-b border-gray-800">
+                    <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider">Standings</h3>
+                </div>
+                <div class="max-h-80 overflow-y-auto">
+                    <table class="w-full text-xs">
+                        <thead class="text-gray-600 uppercase">
+                            <tr class="border-b border-gray-800/50">
+                                <th class="px-4 py-2 text-left">#</th>
+                                <th class="px-4 py-2 text-left">Team</th>
+                                <th class="px-4 py-2 text-center">P</th>
+                                <th class="px-4 py-2 text-center">GD</th>
+                                <th class="px-4 py-2 text-center">Pts</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-800/30">
+                            {% for team in standings[:20] %}
+                            <tr class="hover:bg-dark-700/50">
+                                <td class="px-4 py-1.5 text-gray-500 font-mono">{{ team.position }}</td>
+                                <td class="px-4 py-1.5 text-gray-300 font-medium truncate max-w-[120px]">
+                                    {% if team.team_crest %}
+                                    <img src="{{ team.team_crest }}" class="w-4 h-4 inline mr-1" alt="">
+                                    {% endif %}
+                                    {{ team.team }}
+                                </td>
+                                <td class="px-4 py-1.5 text-center text-gray-500 font-mono">{{ team.played }}</td>
+                                <td class="px-4 py-1.5 text-center font-mono {% if team.goal_difference > 0 %}text-green-400{% elif team.goal_difference < 0 %}text-red-400{% else %}text-gray-500{% endif %}">
+                                    {{ team.goal_difference }}
+                                </td>
+                                <td class="px-4 py-1.5 text-center text-white font-bold font-mono">{{ team.points }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- API Usage -->
+            <div class="glass rounded-xl p-5">
+                <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">API Usage</h3>
+                <div class="space-y-2" x-data="{ usage: {} }" x-init="fetch('/api/usage').then(r=>r.json()).then(d=>usage=d)">
+                    <template x-for="(info, api) in usage" :key="api">
+                        <div class="flex items-center justify-between text-xs">
+                            <span class="text-gray-500" x-text="api"></span>
+                            <div class="flex items-center space-x-2">
+                                <div class="w-24 h-1.5 rounded-full bg-dark-600 overflow-hidden">
+                                    <div class="h-full rounded-full"
+                                         :class="info.used/info.limit > 0.8 ? 'bg-red-500' : 'bg-green-500'"
+                                         :style="`width: ${Math.min(100, (info.used/info.limit)*100)}%`"></div>
+                                </div>
+                                <span class="text-gray-400 font-mono" x-text="`${info.used}/${info.limit}`"></span>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+async function refreshData(action) {
+    const status = document.getElementById('refresh-status');
+    status.classList.remove('hidden');
+    status.textContent = `Refreshing ${action}...`;
+    status.className = 'mt-3 text-xs text-yellow-400 font-mono';
+
+    try {
+        const res = await fetch('/api/refresh-data', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ action: action, league: '{{ league }}' })
+        });
+        const data = await res.json();
+        status.textContent = `Done: ${JSON.stringify(data.results)}`;
+        status.className = 'mt-3 text-xs text-green-400 font-mono';
+        setTimeout(() => location.reload(), 2000);
+    } catch(e) {
+        status.textContent = `Error: ${e.message}`;
+        status.className = 'mt-3 text-xs text-red-400 font-mono';
+    }
+}
+</script>
+{% endblock %}
