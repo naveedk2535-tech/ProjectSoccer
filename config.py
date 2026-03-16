@@ -19,7 +19,7 @@ FLASK_SECRET_KEY = os.getenv("FLASK_SECRET_KEY", "dev-fallback-key")
 # --- Rate Limits (requests per window) ---
 RATE_LIMITS = {
     "football_data_org": {"calls": 10, "period_seconds": 60},      # 10/min (API hard limit)
-    "odds_api":          {"calls": 5,  "period_seconds": 86400},    # 5/day (~150/month, well under 500)
+    "odds_api":          {"calls": 4,  "period_seconds": 86400},    # 4/day (~360/month for 3 leagues, under 500)
     "reddit":            {"calls": 2,  "period_seconds": 86400},    # 2/day (morning + pre-match)
     "newsapi":           {"calls": 2,  "period_seconds": 86400},    # 2/day (morning + pre-match)
     "football_data_uk":  {"calls": 1,  "period_seconds": 172800},   # 1 per 2 days
@@ -74,7 +74,7 @@ LEAGUES = {
         "odds_api_key": "soccer_spain_la_liga",
         "subreddits": ["LaLiga", "soccer"],
         "seasons": ["2526", "2425", "2324"],
-        "enabled": False,
+        "enabled": True,
     },
     "BL1": {
         "name": "Bundesliga",
@@ -84,7 +84,7 @@ LEAGUES = {
         "odds_api_key": "soccer_germany_bundesliga",
         "subreddits": ["Bundesliga", "soccer"],
         "seasons": ["2526", "2425", "2324"],
-        "enabled": False,
+        "enabled": True,
     },
     "SA": {
         "name": "Serie A",
