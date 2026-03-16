@@ -4,52 +4,48 @@ description: Tracks what has been built in ProjectSoccer and current phase statu
 type: project
 ---
 
-## Current Phase: Phase 1 COMPLETE, Phase 2 Partially Complete
+## Current Status: Phase 1-4 COMPLETE, Phase 5-6 Remaining
 
 ### Completed [2026-03-15]
-- Project structure: 36 files across data/, models/, database/, templates/, static/
-- .env with all API keys (football-data.org, Odds API, Reddit, NewsAPI)
-- .gitignore (excludes .env, cache, db, pycache)
-- SQLite database with 10 tables (matches, team_ratings, fixtures, predictions, odds, value_bets, sentiment, referee_stats, h2h, model_performance)
+**Phase 1 — Foundation**
+- 1,051 PL matches loaded (3 seasons: 22/23, 23/24, 24/25)
+- SQLite database with 10 tables, all populated
 - Rate limiter with per-API tracking and caching
-- CSV downloader (football-data.co.uk) — 1,051 PL matches loaded (3 seasons)
-- football-data.org API client (fixtures, standings)
-- The Odds API client (bookmaker odds, margin stripping, implied probabilities)
-- Reddit sentiment client (PRAW + VADER)
-- NewsAPI sentiment client
-- Poisson model with Dixon-Coles correction + scoreline matrix
-- Elo rating system with time decay, streaks, form tracking
-- XGBoost model (20 features including H2H, days rest, referee, seasonality)
-- Sentiment model
-- Ensemble blender with configurable weights
-- Value bet engine with Kelly Criterion
-- Flask app with 5 pages + 6 API endpoints
-- Dark-themed dashboard (Tailwind + Alpine.js + Chart.js)
-- Scheduler script (daily/weekly/all tasks)
-- Backtest script with Brier score, calibration, ROI tracking
-- Models tested: Arsenal vs Chelsea → H:52% D:25% A:23% (Poisson+Elo ensemble)
+- Team name standardization across all data sources
+- Git repo: https://github.com/naveedk2535-tech/ProjectSoccer
 
-### Verified Working
-- Database init and CSV import
-- Poisson predictions with scoreline matrix
-- Elo ratings with form and streaks
-- Ensemble predictions via API
-- Flask dashboard rendering at localhost:5050
+**Phase 2 — Core Models (ALL 4 RUNNING)**
+- Poisson + Dixon-Coles: scoreline matrix, O2.5, BTTS
+- Elo: ratings with time decay, form, streaks, home/away splits
+- XGBoost: 20 features, trained on 631 matches (H2H 33% importance)
+- Ensemble: weighted blend (Poisson 35%, XGBoost 30%, Elo 25%, Sentiment 10%)
 
-### Next Steps
-- Create GitHub repo and push
-- Deploy to PythonAnywhere (/home/zziai38)
-- Set up scheduled tasks on PythonAnywhere
-- Fetch live fixtures and odds
-- Run full backtest
-- Train XGBoost model
-- Collect sentiment data
+**Phase 3 — Odds & Value**
+- The Odds API: 552 odds rows, 19 events, 40 bookmakers
+- Margin stripping + implied probability calculation
+- 5 value bets identified for upcoming gameweek
+- Kelly Criterion (quarter-Kelly) stake suggestions
 
-### Not Yet Done
-- GitHub repo creation
-- PythonAnywhere deployment
-- Live fixture/odds data
-- XGBoost training (needs more data processing)
-- Sentiment data collection
-- Mobile responsive testing
-- Additional leagues beyond PL
+**Phase 4 — Sentiment**
+- Reddit sentiment for 23 PL teams via PRAW + VADER
+- NewsAPI headlines with keyword flagging (injury, sacked, ban, etc.)
+- Combined sentiment score per team
+
+**Phase 5 — Backtest & Validation**
+- Backtest on 631 matches: 54.4% accuracy, Brier 0.574
+- Calibration: well calibrated (50% predicted → 51.9% observed)
+- Value bet ROI: +31.3% on historical data
+- 25 referee profiles, 298 H2H records
+
+**Dashboard — ALL 5 PAGES WORKING**
+- Command Center: fixtures + predictions + value bets + standings
+- Match Detail: 4-model breakdown, scoreline chart, H2H, form, odds
+- League View: standings table + Elo ratings
+- Sentiment Tracker: per-team gauges
+- Model Performance: backtest results
+
+### Remaining
+- Phase 6: Deploy to PythonAnywhere (/home/zziai38)
+- Set up scheduled tasks (daily/weekly cron)
+- Add remaining 6 leagues
+- Mobile responsive polish
