@@ -828,6 +828,15 @@ def api_refresh_data():
     if action in ("all", "csv"):
         count = football_data_uk.download_all_leagues()
         results["csv_matches_imported"] = count
+        if count > 0:
+            results["note_csv"] = "New results found — rebuilding ratings"
+            # Rebuild ratings and retrain when new match data arrives
+            try:
+                from scheduler import task_ratings
+                task_ratings()
+                results["ratings_rebuilt"] = True
+            except Exception as e:
+                logger.error("Rating rebuild failed: %s", e)
 
     if action in ("all", "fixtures"):
         fixtures = football_data_api.get_upcoming_fixtures(league)
@@ -836,6 +845,22 @@ def api_refresh_data():
     if action in ("all", "odds"):
         odds = odds_api.get_odds(league)
         results["odds_events"] = len(odds)
+
+    # If we got new fixtures or odds, regenerate predictions
+    if action == "all" and (results.get("fixtures_fetched", 0) > 0 or results.get("odds_events", 0) > 0):
+        try:
+            from scheduler import task_predictions
+            task_predictions()
+            results["predictions_regenerated"] = True
+        except Exception as e:
+            logger.error("Prediction generation failed: %s", e)
+
+    # Track what was rate-limited
+    from data.rate_limiter import get_usage_summary
+    usage = get_usage_summary()
+    rate_limited = [name for name, info in usage.items() if info["remaining"] <= 0]
+    if rate_limited:
+        results["rate_limited"] = rate_limited
 
     return jsonify({"status": "ok", "results": results})
 
