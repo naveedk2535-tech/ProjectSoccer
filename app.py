@@ -4,6 +4,7 @@ Main entry point for the soccer prediction dashboard.
 """
 import logging
 import json
+import os
 from datetime import datetime
 
 from functools import wraps
@@ -26,9 +27,26 @@ app = Flask(__name__)
 app.secret_key = config.FLASK_SECRET_KEY
 
 
-USERS = {
-    "admin": "!admin123!",
-}
+USERS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "users.json")
+
+
+def load_users():
+    """Load users from JSON file."""
+    try:
+        with open(USERS_FILE, "r") as f:
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return {"admin": "!admin123!"}
+
+
+def save_users(users):
+    """Save users to JSON file."""
+    os.makedirs(os.path.dirname(USERS_FILE), exist_ok=True)
+    with open(USERS_FILE, "w") as f:
+        json.dump(users, f, indent=2)
+
+
+USERS = load_users()
 
 
 def login_required(f):
@@ -388,6 +406,71 @@ def portfolio_view():
         pending=pending,
         summary=summary,
     )
+
+
+@app.route("/settings")
+@login_required
+def settings_view():
+    """User management settings page."""
+    users = load_users()
+    return render_template("settings.html",
+        leagues=config.LEAGUES,
+        users=users,
+        now=datetime.utcnow(),
+    )
+
+
+@app.route("/api/users", methods=["POST"])
+@login_required
+def api_add_user():
+    """Add a new user."""
+    global USERS
+    data = request.json
+    if not data or not data.get("username") or not data.get("password"):
+        return jsonify({"error": "Username and password required"}), 400
+    username = data["username"].strip()
+    if not username:
+        return jsonify({"error": "Username cannot be empty"}), 400
+    users = load_users()
+    if username in users:
+        return jsonify({"error": "User already exists"}), 400
+    users[username] = data["password"]
+    save_users(users)
+    USERS = users
+    return jsonify({"status": "ok", "message": f"User '{username}' created"})
+
+
+@app.route("/api/users/<username>/password", methods=["PUT"])
+@login_required
+def api_change_password(username):
+    """Change a user's password."""
+    global USERS
+    data = request.json
+    if not data or not data.get("password"):
+        return jsonify({"error": "New password required"}), 400
+    users = load_users()
+    if username not in users:
+        return jsonify({"error": "User not found"}), 404
+    users[username] = data["password"]
+    save_users(users)
+    USERS = users
+    return jsonify({"status": "ok", "message": f"Password updated for '{username}'"})
+
+
+@app.route("/api/users/<username>", methods=["DELETE"])
+@login_required
+def api_delete_user(username):
+    """Delete a user. Cannot delete the last admin."""
+    global USERS
+    users = load_users()
+    if username not in users:
+        return jsonify({"error": "User not found"}), 404
+    if len(users) <= 1:
+        return jsonify({"error": "Cannot delete the last user"}), 400
+    del users[username]
+    save_users(users)
+    USERS = users
+    return jsonify({"status": "ok", "message": f"User '{username}' deleted"})
 
 
 # --- API Routes ---

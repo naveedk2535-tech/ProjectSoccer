@@ -132,6 +132,9 @@
                     <a href="/performance" class="nav-link px-3 py-2 rounded-lg text-sm font-medium {% if request.path == '/performance' %}active text-emerald-400{% else %}text-gray-400 hover:text-white hover:bg-dark-600{% endif %} transition">
                         Performance
                     </a>
+                    <a href="/settings" class="nav-link px-3 py-2 rounded-lg text-sm font-medium {% if request.path == '/settings' %}active text-emerald-400{% else %}text-gray-400 hover:text-white hover:bg-dark-600{% endif %} transition">
+                        Settings
+                    </a>
                 </div>
 
                 <!-- Status + User -->
@@ -142,8 +145,8 @@
                     </div>
                     {% if session.get('logged_in') %}
                     <div class="flex items-center space-x-2">
-                        <span class="text-xs text-gray-500">{{ session.get('username', '') }}</span>
-                        <a href="/logout" class="text-xs text-gray-600 hover:text-red-400 transition">Logout</a>
+                        <span class="text-xs text-gray-300">{{ session.get('username', '') }}</span>
+                        <a href="/logout" class="text-xs text-gray-400 hover:text-red-400 transition">Logout</a>
                     </div>
                     {% endif %}
                 </div>
@@ -157,8 +160,8 @@
     </main>
 
     <!-- Footer -->
-    <footer class="border-t border-gray-800/30 mt-8 py-4">
-        <div class="max-w-screen-2xl mx-auto px-4 flex items-center justify-between text-xs text-gray-700">
+    <footer class="border-t border-gray-800/30 mt-8 py-4 bg-dark-800/50">
+        <div class="max-w-screen-2xl mx-auto px-4 flex items-center justify-between text-xs text-gray-400">
             <div class="flex items-center space-x-2">
                 <div class="w-4 h-4 rounded bg-gradient-to-br from-emerald-600 to-green-500 flex items-center justify-center">
                     <span class="text-white text-[8px] font-bold">PS</span>
@@ -169,7 +172,7 @@
                 <template x-for="(info, api) in usage" :key="api">
                     <span class="font-mono">
                         <span x-text="api"></span>:
-                        <span x-text="info.used" class="text-gray-500"></span>/<span x-text="info.limit"></span>
+                        <span x-text="info.used" class="text-gray-400"></span>/<span x-text="info.limit"></span>
                     </span>
                 </template>
             </div>

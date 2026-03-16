@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+{% block title %}Settings{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <div>
+        <h1 class="text-2xl font-bold text-white">Settings</h1>
+        <p class="text-sm text-gray-500">Manage users and application settings</p>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Current Users -->
+        <div class="glass rounded-xl overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-800">
+                <h2 class="text-sm font-semibold text-emerald-400 uppercase tracking-wider">User Accounts</h2>
+                <p class="text-xs text-gray-500">{{ users|length }} user{{ 's' if users|length != 1 else '' }} registered</p>
+            </div>
+            <div class="divide-y divide-gray-800/50">
+                {% for username, password in users.items() %}
+                <div class="px-6 py-4" x-data="{ editing: false, newPassword: '' }">
+                    <!-- Normal View -->
+                    <div x-show="!editing">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center space-x-3">
+                                <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-600 to-green-500 flex items-center justify-center">
+                                    <span class="text-white text-sm font-bold">{{ username[0]|upper }}</span>
+                                </div>
+                                <div>
+                                    <p class="text-sm font-medium text-white">{{ username }}</p>
+                                    <p class="text-[10px] text-gray-600 font-mono">{{ '*' * password|length }}</p>
+                                </div>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <button @click="editing = true"
+                                        class="px-3 py-1.5 rounded-lg bg-blue-900/20 hover:bg-blue-900/40 text-blue-400 text-xs font-medium transition">
+                                    Change Password
+                                </button>
+                                <button onclick="deleteUser('{{ username }}')"
+                                        class="px-3 py-1.5 rounded-lg bg-red-900/20 hover:bg-red-900/40 text-red-400 text-xs font-medium transition">
+                                    Delete
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Edit Password View -->
+                    <div x-show="editing" x-cloak class="space-y-3">
+                        <p class="text-sm text-white font-medium">Change password for <span class="text-emerald-400">{{ username }}</span></p>
+                        <div>
+                            <label class="text-[10px] text-gray-500 uppercase">New Password</label>
+                            <input type="password" x-model="newPassword" placeholder="Enter new password"
+                                   class="w-full mt-1 px-3 py-2 rounded-lg bg-dark-900 border border-gray-700 text-white text-sm focus:border-emerald-500 focus:outline-none">
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <button @click="changePassword('{{ username }}', newPassword); editing = false; newPassword = ''"
+                                    class="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-medium transition">
+                                Save Password
+                            </button>
+                            <button @click="editing = false; newPassword = ''"
+                                    class="px-4 py-2 rounded-lg bg-dark-600 hover:bg-dark-500 text-gray-400 text-xs transition">
+                                Cancel
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Add New User -->
+        <div class="glass rounded-xl overflow-hidden" x-data="{ username: '', password: '', message: '', error: '' }">
+            <div class="px-6 py-4 border-b border-gray-800">
+                <h2 class="text-sm font-semibold text-emerald-400 uppercase tracking-wider">Add New User</h2>
+                <p class="text-xs text-gray-500">Create a new account</p>
+            </div>
+            <div class="p-6 space-y-4">
+                <div>
+                    <label class="text-[10px] text-gray-500 uppercase">Username</label>
+                    <input type="text" x-model="username" placeholder="Enter username"
+                           class="w-full mt-1 px-3 py-2 rounded-lg bg-dark-900 border border-gray-700 text-white text-sm focus:border-emerald-500 focus:outline-none">
+                </div>
+                <div>
+                    <label class="text-[10px] text-gray-500 uppercase">Password</label>
+                    <input type="password" x-model="password" placeholder="Enter password"
+                           class="w-full mt-1 px-3 py-2 rounded-lg bg-dark-900 border border-gray-700 text-white text-sm focus:border-emerald-500 focus:outline-none">
+                </div>
+                <button @click="addUser(username, password)"
+                        class="w-full px-4 py-2.5 rounded-lg bg-gradient-to-r from-emerald-600 to-green-500 hover:from-emerald-500 hover:to-green-400 text-white text-sm font-medium transition">
+                    Create User
+                </button>
+                <template x-if="message">
+                    <div class="px-3 py-2 rounded-lg bg-emerald-900/30 border border-emerald-700/30">
+                        <p class="text-xs text-emerald-400" x-text="message"></p>
+                    </div>
+                </template>
+                <template x-if="error">
+                    <div class="px-3 py-2 rounded-lg bg-red-900/30 border border-red-700/30">
+                        <p class="text-xs text-red-400" x-text="error"></p>
+                    </div>
+                </template>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+async function addUser(username, password) {
+    if (!username || !password) {
+        alert('Username and password are required');
+        return;
+    }
+    const res = await fetch('/api/users', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ username, password })
+    });
+    const data = await res.json();
+    if (res.ok) {
+        location.reload();
+    } else {
+        alert(data.error || 'Error creating user');
+    }
+}
+
+async function changePassword(username, newPassword) {
+    if (!newPassword) {
+        alert('Password cannot be empty');
+        return;
+    }
+    const res = await fetch(`/api/users/${username}/password`, {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ password: newPassword })
+    });
+    const data = await res.json();
+    if (res.ok) {
+        alert('Password updated successfully');
+        location.reload();
+    } else {
+        alert(data.error || 'Error updating password');
+    }
+}
+
+async function deleteUser(username) {
+    if (!confirm(`Delete user "${username}"? This cannot be undone.`)) return;
+    const res = await fetch(`/api/users/${username}`, { method: 'DELETE' });
+    const data = await res.json();
+    if (res.ok) {
+        location.reload();
+    } else {
+        alert(data.error || 'Error deleting user');
+    }
+}
+</script>
+{% endblock %}
