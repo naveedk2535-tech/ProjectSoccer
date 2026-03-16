@@ -91,9 +91,60 @@ def extract_features(home_team, away_team, league="PL", match_date=None):
         )
         features[f"{prefix}_goals_pg"] = round(gpg["avg_goals"], 3) if gpg and gpg["avg_goals"] else 1.3
 
-    # 14. Referee avg total goals
-    features["referee_avg_goals"] = 2.7  # default
-    # Will be populated when referee is known for upcoming fixtures
+    # 14-16. Referee stats (replaces hardcoded 2.7)
+    referee_name = None
+    # Try to look up referee from fixtures table
+    if match_date:
+        try:
+            fixture = db.fetch_one(
+                """SELECT referee FROM fixtures
+                   WHERE league = ? AND home_team = ? AND away_team = ?
+                   AND DATE(match_date) = DATE(?)""",
+                [league, home_team, away_team, match_date]
+            )
+            if fixture and fixture.get("referee"):
+                referee_name = fixture["referee"]
+        except Exception:
+            pass
+
+        # Also check matches table for historical data
+        if not referee_name:
+            try:
+                match_row = db.fetch_one(
+                    """SELECT referee FROM matches
+                       WHERE league = ? AND home_team = ? AND away_team = ?
+                       AND match_date = ?""",
+                    [league, home_team, away_team, match_date]
+                )
+                if match_row and match_row.get("referee"):
+                    referee_name = match_row["referee"]
+            except Exception:
+                pass
+
+    # Look up referee stats if referee is known
+    if referee_name:
+        try:
+            ref_stats = db.fetch_one(
+                """SELECT avg_total_goals, home_win_pct, over25_pct
+                   FROM referee_stats WHERE referee = ? AND league = ?""",
+                [referee_name, league]
+            )
+            if ref_stats:
+                features["referee_avg_goals"] = ref_stats["avg_total_goals"] if ref_stats["avg_total_goals"] is not None else 2.7
+                features["referee_home_win_pct"] = ref_stats["home_win_pct"] if ref_stats["home_win_pct"] is not None else 0.46
+                features["referee_over25_pct"] = ref_stats["over25_pct"] if ref_stats["over25_pct"] is not None else 0.50
+            else:
+                features["referee_avg_goals"] = 2.7
+                features["referee_home_win_pct"] = 0.46
+                features["referee_over25_pct"] = 0.50
+        except Exception:
+            features["referee_avg_goals"] = 2.7
+            features["referee_home_win_pct"] = 0.46
+            features["referee_over25_pct"] = 0.50
+    else:
+        features["referee_avg_goals"] = 2.7
+        features["referee_home_win_pct"] = 0.46
+        features["referee_over25_pct"] = 0.50
 
     # 15. Month of season (1-12)
     if match_date:
@@ -106,14 +157,68 @@ def extract_features(home_team, away_team, league="PL", match_date=None):
     features["away_sentiment"] = 0.0
     # Will be populated by sentiment module
 
-    # 18. Is promoted team (either side)
-    features["has_promoted"] = 0  # TODO: detect from season-over-season data
+    # 18. Is promoted team (either side) — uses Elo model's promoted detection
+    home_promoted = 1 if home_r.get("is_promoted", False) else 0
+    away_promoted = 1 if away_r.get("is_promoted", False) else 0
+    features["has_promoted"] = 1 if (home_promoted or away_promoted) else 0
 
     # 19. Streak length (home team)
     features["home_streak_len"] = home_r.get("streak_length", 0)
 
     # 20. Pinnacle implied probability (if available)
-    features["pinnacle_home_implied"] = 0.0  # populated when odds are available
+    pinnacle_implied = 0.0
+    if match_date:
+        pinnacle_row = db.fetch_one(
+            """SELECT pinnacle_home FROM matches
+               WHERE league = ? AND home_team = ? AND away_team = ? AND match_date = ?""",
+            [league, home_team, away_team, match_date]
+        )
+        if pinnacle_row and pinnacle_row.get("pinnacle_home"):
+            try:
+                pinnacle_implied = round(1.0 / pinnacle_row["pinnacle_home"], 4)
+            except (ZeroDivisionError, TypeError):
+                pinnacle_implied = 0.0
+    features["pinnacle_home_implied"] = pinnacle_implied
+
+    # 21-24. Fixture congestion index
+    if match_date:
+        for team, prefix in [(home_team, "home"), (away_team, "away")]:
+            for days, suffix in [(14, "14d"), (30, "30d")]:
+                date_cutoff = (datetime.strptime(match_date, "%Y-%m-%d") - timedelta(days=days)).strftime("%Y-%m-%d")
+                count_row = db.fetch_one(
+                    """SELECT COUNT(*) as cnt FROM matches
+                       WHERE league = ? AND (home_team = ? OR away_team = ?)
+                             AND match_date >= ? AND match_date < ?""",
+                    [league, team, team, date_cutoff, match_date]
+                )
+                features[f"{prefix}_matches_{suffix}"] = count_row["cnt"] if count_row else 0
+    else:
+        features["home_matches_14d"] = 2
+        features["away_matches_14d"] = 2
+        features["home_matches_30d"] = 4
+        features["away_matches_30d"] = 4
+
+    # 25. Congestion differential (positive = home more fatigued)
+    features["congestion_diff"] = features.get("home_matches_14d", 2) - features.get("away_matches_14d", 2)
+
+    # 26. Odds movement (change in best available home odds between earliest and latest fetch)
+    features["odds_movement"] = 0.0
+    if match_date:
+        try:
+            odds_rows = db.fetch_all(
+                """SELECT home_odds, fetched_at FROM odds
+                   WHERE league = ? AND home_team = ? AND away_team = ?
+                   ORDER BY fetched_at ASC""",
+                [league, home_team, away_team]
+            )
+            if odds_rows and len(odds_rows) >= 2:
+                earliest_odds = odds_rows[0].get("home_odds")
+                latest_odds = odds_rows[-1].get("home_odds")
+                if earliest_odds and latest_odds and earliest_odds > 0:
+                    # Positive movement = odds shortened (more money on that outcome)
+                    features["odds_movement"] = round(earliest_odds - latest_odds, 4)
+        except Exception:
+            features["odds_movement"] = 0.0
 
     return features
 
@@ -182,6 +287,53 @@ def train(league="PL"):
 
     logger.info("XGBoost model trained on %d matches, saved to %s", len(X), MODEL_PATH)
     return model
+
+
+def evaluate_model(league="PL"):
+    """Run cross-validation on the training data and return the Brier score."""
+    try:
+        import xgboost as xgb
+        from sklearn.model_selection import cross_val_predict
+    except ImportError:
+        logger.error("xgboost or sklearn not installed for evaluation")
+        return None
+
+    X, y = build_training_data(league)
+    if X is None or len(X) < 50:
+        logger.warning("Not enough data to evaluate model")
+        return None
+
+    model = xgb.XGBClassifier(
+        n_estimators=200,
+        max_depth=4,
+        learning_rate=0.05,
+        objective="multi:softprob",
+        num_class=3,
+        eval_metric="mlogloss",
+        use_label_encoder=False,
+        random_state=42,
+    )
+
+    try:
+        # 5-fold cross-validation to get out-of-sample probabilities
+        probs = cross_val_predict(model, X, y, cv=5, method="predict_proba")
+
+        # Calculate Brier score: mean of sum of squared differences
+        # For multi-class: Brier = (1/N) * sum_i sum_k (p_ik - o_ik)^2
+        n_samples = len(y)
+        n_classes = 3
+        brier = 0.0
+        for i in range(n_samples):
+            for k in range(n_classes):
+                actual = 1.0 if y[i] == k else 0.0
+                brier += (probs[i][k] - actual) ** 2
+        brier /= n_samples
+
+        logger.info("XGBoost CV Brier score for %s: %.4f", league, brier)
+        return round(brier, 4)
+    except Exception as e:
+        logger.error("Error evaluating model: %s", e)
+        return None
 
 
 def predict(home_team, away_team, league="PL", match_date=None):

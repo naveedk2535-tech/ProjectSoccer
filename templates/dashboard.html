@@ -50,10 +50,26 @@
         </div>
 
         <!-- Model Status -->
-        <div class="glass rounded-xl p-4 stat-card">
-            <p class="text-xs text-slate-500 uppercase tracking-wider">Models</p>
+        <div class="glass rounded-xl p-4 stat-card" x-data="{ health: null }" x-init="fetch('/api/diagnosis').then(r=>r.json()).then(d=>health=d).catch(()=>null)">
+            <div class="flex items-center justify-between">
+                <p class="text-xs text-slate-500 uppercase tracking-wider">Models</p>
+                <!-- Model Health Dot -->
+                <template x-if="health">
+                    <span class="relative flex h-3 w-3" :title="'Model Health: ' + health.overall_status">
+                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75"
+                              :class="health.overall_status === 'healthy' ? 'bg-green-400' : health.overall_status === 'degrading' ? 'bg-yellow-400' : health.overall_status === 'critical' ? 'bg-red-400' : 'bg-gray-400'"></span>
+                        <span class="relative inline-flex rounded-full h-3 w-3"
+                              :class="health.overall_status === 'healthy' ? 'bg-green-500' : health.overall_status === 'degrading' ? 'bg-yellow-500' : health.overall_status === 'critical' ? 'bg-red-500' : 'bg-gray-500'"></span>
+                    </span>
+                </template>
+            </div>
             <p class="text-2xl font-extrabold text-purple-400 mt-1 font-mono">4</p>
             <p class="text-xs text-slate-500 mt-1">Poisson / Elo / XGB / Sent</p>
+            <template x-if="health && health.overall_status !== 'unknown'">
+                <p class="text-[10px] mt-1"
+                   :class="health.overall_status === 'healthy' ? 'text-green-600' : health.overall_status === 'degrading' ? 'text-yellow-600' : 'text-red-600'"
+                   x-text="'Health: ' + health.overall_status"></p>
+            </template>
         </div>
     </div>
 

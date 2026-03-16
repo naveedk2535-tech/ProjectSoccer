@@ -20,6 +20,147 @@ logger = logging.getLogger(__name__)
 MAX_GOALS = 7  # 0-6 goals per team in probability matrix
 
 
+def calculate_half_profiles(league="PL"):
+    """
+    Build per-team half-time performance profiles.
+
+    For each team, calculate:
+    - Avg goals scored in 1st half vs 2nd half (home and away)
+    - Comeback rate: % of games losing at HT but won/drew FT
+    - Collapse rate: % of games winning at HT but drew/lost FT
+
+    Returns dict of team -> profile dict.
+    """
+    matches = db.fetch_all(
+        """SELECT * FROM matches WHERE league = ? AND ft_home_goals IS NOT NULL
+           AND ht_home_goals IS NOT NULL
+           ORDER BY match_date ASC""",
+        [league]
+    )
+    if not matches:
+        return {}
+
+    team_profiles = {}
+
+    for m in matches:
+        home = m["home_team"]
+        away = m["away_team"]
+
+        ht_home = m.get("ht_home_goals")
+        ht_away = m.get("ht_away_goals")
+        ft_home = m["ft_home_goals"]
+        ft_away = m["ft_away_goals"]
+
+        # Skip if HT data is missing
+        if ht_home is None or ht_away is None:
+            continue
+
+        second_half_home = ft_home - ht_home
+        second_half_away = ft_away - ht_away
+
+        # Determine HT and FT results for each team's perspective
+        if ht_home > ht_away:
+            ht_home_status, ht_away_status = "winning", "losing"
+        elif ht_home < ht_away:
+            ht_home_status, ht_away_status = "losing", "winning"
+        else:
+            ht_home_status, ht_away_status = "drawing", "drawing"
+
+        if ft_home > ft_away:
+            ft_home_status, ft_away_status = "won", "lost"
+        elif ft_home < ft_away:
+            ft_home_status, ft_away_status = "lost", "won"
+        else:
+            ft_home_status, ft_away_status = "drew", "drew"
+
+        for team, is_home in [(home, True), (away, False)]:
+            if team not in team_profiles:
+                team_profiles[team] = {
+                    "home_1h_goals": 0, "home_2h_goals": 0, "home_games": 0,
+                    "away_1h_goals": 0, "away_2h_goals": 0, "away_games": 0,
+                    "losing_ht_count": 0, "comeback_count": 0,
+                    "winning_ht_count": 0, "collapse_count": 0,
+                }
+
+            tp = team_profiles[team]
+            if is_home:
+                tp["home_1h_goals"] += ht_home
+                tp["home_2h_goals"] += second_half_home
+                tp["home_games"] += 1
+                ht_status = ht_home_status
+                ft_status = ft_home_status
+            else:
+                tp["away_1h_goals"] += ht_away
+                tp["away_2h_goals"] += second_half_away
+                tp["away_games"] += 1
+                ht_status = ht_away_status
+                ft_status = ft_away_status
+
+            # Comeback: losing at HT, won or drew FT
+            if ht_status == "losing":
+                tp["losing_ht_count"] += 1
+                if ft_status in ("won", "drew"):
+                    tp["comeback_count"] += 1
+
+            # Collapse: winning at HT, drew or lost FT
+            if ht_status == "winning":
+                tp["winning_ht_count"] += 1
+                if ft_status in ("drew", "lost"):
+                    tp["collapse_count"] += 1
+
+    # Build final profiles
+    profiles = {}
+    for team, tp in team_profiles.items():
+        hg = tp["home_games"] or 1
+        ag = tp["away_games"] or 1
+
+        profiles[team] = {
+            "home_avg_1h_goals": round(tp["home_1h_goals"] / hg, 3),
+            "home_avg_2h_goals": round(tp["home_2h_goals"] / hg, 3),
+            "away_avg_1h_goals": round(tp["away_1h_goals"] / ag, 3),
+            "away_avg_2h_goals": round(tp["away_2h_goals"] / ag, 3),
+            "comeback_rate": round(tp["comeback_count"] / tp["losing_ht_count"], 3) if tp["losing_ht_count"] > 0 else 0.0,
+            "collapse_rate": round(tp["collapse_count"] / tp["winning_ht_count"], 3) if tp["winning_ht_count"] > 0 else 0.0,
+            "home_games": tp["home_games"],
+            "away_games": tp["away_games"],
+        }
+
+    return profiles
+
+
+def calculate_second_half_strength(league="PL"):
+    """
+    Calculate a second-half strength multiplier per team.
+
+    Teams that score proportionally more in the 2nd half may be stronger
+    than their 1st-half performance suggests (fitness, tactical adjustments).
+
+    Returns dict of team -> second_half_strength multiplier (1.0 = neutral).
+    """
+    profiles = calculate_half_profiles(league)
+    if not profiles:
+        return {}
+
+    multipliers = {}
+    for team, p in profiles.items():
+        total_1h = p["home_avg_1h_goals"] + p["away_avg_1h_goals"]
+        total_2h = p["home_avg_2h_goals"] + p["away_avg_2h_goals"]
+
+        if total_1h > 0:
+            # Ratio of 2nd half to 1st half scoring
+            ratio = total_2h / total_1h
+            # Convert to a bounded multiplier: 0.9 to 1.1
+            # ratio > 1 means team scores more in 2nd half (stronger)
+            multiplier = 1.0 + (ratio - 1.0) * 0.1
+            multiplier = max(0.9, min(1.1, multiplier))
+        else:
+            multiplier = 1.0
+
+        multipliers[team] = round(multiplier, 4)
+
+    return multipliers
+
+
 def calculate_league_averages(league="PL", season=None):
     """Calculate league-wide average goals per game (home and away)."""
     query = "SELECT * FROM matches WHERE league = ? AND ft_home_goals IS NOT NULL"
@@ -181,9 +322,17 @@ def predict(home_team, away_team, league="PL"):
     home = strengths[home_team]
     away = strengths[away_team]
 
-    # Expected goals (lambda)
-    home_lambda = avgs["home_avg"] * home["home_attack"] * away["away_defence"]
-    away_lambda = avgs["away_avg"] * away["away_attack"] * home["home_defence"]
+    # Get second-half strength multipliers (goal timing weights)
+    try:
+        sh_multipliers = calculate_second_half_strength(league)
+    except Exception:
+        sh_multipliers = {}
+    home_sh = sh_multipliers.get(home_team, 1.0)
+    away_sh = sh_multipliers.get(away_team, 1.0)
+
+    # Expected goals (lambda), adjusted by second-half strength
+    home_lambda = avgs["home_avg"] * home["home_attack"] * away["away_defence"] * home_sh
+    away_lambda = avgs["away_avg"] * away["away_attack"] * home["home_defence"] * away_sh
 
     # Clamp to reasonable range
     home_lambda = max(0.2, min(home_lambda, 5.0))
@@ -233,5 +382,7 @@ def predict(home_team, away_team, league="PL"):
             "away_defence": away["away_defence"],
             "league_home_avg": avgs["home_avg"],
             "league_away_avg": avgs["away_avg"],
+            "home_second_half_strength": home_sh,
+            "away_second_half_strength": away_sh,
         }
     }

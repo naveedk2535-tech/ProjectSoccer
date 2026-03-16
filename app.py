@@ -15,6 +15,7 @@ from database import db
 from data import football_data_uk, football_data_api, odds_api
 from data.rate_limiter import get_usage_summary
 from models import ensemble, poisson, elo
+from models import diagnosis as diagnosis_module
 
 # Configure logging
 logging.basicConfig(
@@ -652,6 +653,42 @@ def api_standings(league):
     """API endpoint for league standings."""
     standings = football_data_api.get_standings(league)
     return jsonify(standings)
+
+
+@app.route("/api/diagnosis")
+@login_required
+def api_diagnosis():
+    """API endpoint for model health diagnosis."""
+    try:
+        health = diagnosis_module.get_model_health()
+        retrain_info = diagnosis_module.should_retrain()
+        rolling = diagnosis_module.calculate_rolling_performance()
+
+        # Determine overall status
+        statuses = [v.get("status", "unknown") for v in health.values()]
+        if "critical" in statuses:
+            overall = "critical"
+        elif "degrading" in statuses:
+            overall = "degrading"
+        elif all(s == "healthy" for s in statuses):
+            overall = "healthy"
+        else:
+            overall = "unknown"
+
+        return jsonify({
+            "overall_status": overall,
+            "models": health,
+            "retrain": retrain_info,
+            "rolling_performance": rolling,
+        })
+    except Exception as e:
+        logger.error("Diagnosis endpoint error: %s", e)
+        return jsonify({
+            "overall_status": "unknown",
+            "models": {},
+            "retrain": {"retrain": False, "reason": str(e)},
+            "rolling_performance": {},
+        })
 
 
 @app.route("/api/usage")

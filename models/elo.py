@@ -53,6 +53,8 @@ def build_ratings(league="PL"):
 
     ratings = {}
     current_season = None
+    season_teams = {}  # season -> set of teams seen in that season
+    previous_season_teams = set()  # teams from the previous season
 
     for m in matches:
         home = m["home_team"]
@@ -60,7 +62,7 @@ def build_ratings(league="PL"):
         result = m["ft_result"]
         season = m["season"]
 
-        # Apply decay at season boundaries
+        # Apply decay at season boundaries and detect promoted teams
         if current_season and season != current_season:
             decay = SETTINGS["decay_factor"]
             base = SETTINGS["initial_rating"]
@@ -68,17 +70,36 @@ def build_ratings(league="PL"):
                 ratings[team]["elo"] = base + (ratings[team]["elo"] - base) * decay
                 ratings[team]["elo_home"] = base + (ratings[team]["elo_home"] - base) * decay
                 ratings[team]["elo_away"] = base + (ratings[team]["elo_away"] - base) * decay
+            # Track teams from previous season for promoted team detection
+            previous_season_teams = season_teams.get(current_season, set())
+            season_teams[season] = set()
+        elif season not in season_teams:
+            season_teams[season] = set()
         current_season = season
+
+        # Track teams per season
+        season_teams[season].add(home)
+        season_teams[season].add(away)
 
         # Initialize new teams
         for team in [home, away]:
             if team not in ratings:
+                # Detect promoted team: new team not in previous season's data
+                is_promoted = (len(previous_season_teams) > 0 and team not in previous_season_teams)
+                initial_elo = SETTINGS["initial_rating"]
+                if is_promoted:
+                    # Apply Elo boost for newly promoted teams (typically underrated)
+                    initial_elo += 75
+                    logger.info("Promoted team detected: %s (season %s), initial Elo boosted to %d",
+                                team, season, initial_elo)
                 ratings[team] = {
-                    "elo": SETTINGS["initial_rating"],
-                    "elo_home": SETTINGS["initial_rating"],
-                    "elo_away": SETTINGS["initial_rating"],
+                    "elo": initial_elo,
+                    "elo_home": initial_elo,
+                    "elo_away": initial_elo,
                     "results": [],
                     "last_match_date": None,
+                    "is_promoted": is_promoted,
+                    "promoted_matches_remaining": 6 if is_promoted else 0,
                 }
 
         # Calculate expected scores with home advantage
@@ -107,6 +128,13 @@ def build_ratings(league="PL"):
         ratings[away]["elo"] = update_elo(ratings[away]["elo"], exp_away, actual_away, k)
         ratings[home]["elo_home"] = update_elo(ratings[home]["elo_home"], exp_home, actual_home, k)
         ratings[away]["elo_away"] = update_elo(ratings[away]["elo_away"], exp_away, actual_away, k)
+
+        # Track promoted team match count (boost wears off after 6 matches)
+        for team in [home, away]:
+            if ratings[team].get("promoted_matches_remaining", 0) > 0:
+                ratings[team]["promoted_matches_remaining"] -= 1
+                if ratings[team]["promoted_matches_remaining"] == 0:
+                    ratings[team]["is_promoted"] = False
 
         # Track results for form calculation
         ratings[home]["results"].append(result)

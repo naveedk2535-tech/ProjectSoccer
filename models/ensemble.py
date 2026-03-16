@@ -6,6 +6,7 @@ into a single probability output.
 """
 import logging
 import json
+import os
 from datetime import datetime
 
 from models import poisson as poisson_model
@@ -17,7 +18,27 @@ import config
 
 logger = logging.getLogger(__name__)
 
-WEIGHTS = config.MODEL_WEIGHTS
+SETTINGS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data", "app_settings.json")
+
+
+def _load_weights():
+    """Load model weights, preferring optimized weights from settings file."""
+    try:
+        with open(SETTINGS_FILE, "r") as f:
+            settings = json.load(f)
+        saved_weights = settings.get("model_weights")
+        if saved_weights and isinstance(saved_weights, dict):
+            # Validate that all required keys are present
+            required = {"poisson", "elo", "xgboost", "sentiment"}
+            if required.issubset(saved_weights.keys()):
+                logger.debug("Using optimized model weights from settings")
+                return saved_weights
+    except (FileNotFoundError, json.JSONDecodeError, Exception):
+        pass
+    return config.MODEL_WEIGHTS
+
+
+WEIGHTS = _load_weights()
 
 
 def predict(home_team, away_team, league="PL", match_date=None):
@@ -25,6 +46,9 @@ def predict(home_team, away_team, league="PL", match_date=None):
     Generate ensemble prediction by combining all models.
     Falls back gracefully if individual models fail.
     """
+    # Reload weights each time to pick up optimized values
+    weights = _load_weights()
+
     predictions = {}
     model_details = {}
     available_weight = 0
@@ -34,9 +58,9 @@ def predict(home_team, away_team, league="PL", match_date=None):
         p = poisson_model.predict(home_team, away_team, league)
         if p:
             predictions["poisson"] = p
-            available_weight += WEIGHTS["poisson"]
+            available_weight += weights["poisson"]
             model_details["poisson"] = {
-                "weight": WEIGHTS["poisson"],
+                "weight": weights["poisson"],
                 "home_win": p["home_win"],
                 "draw": p["draw"],
                 "away_win": p["away_win"],
@@ -52,9 +76,9 @@ def predict(home_team, away_team, league="PL", match_date=None):
         e = elo_model.predict(home_team, away_team, league)
         if e:
             predictions["elo"] = e
-            available_weight += WEIGHTS["elo"]
+            available_weight += weights["elo"]
             model_details["elo"] = {
-                "weight": WEIGHTS["elo"],
+                "weight": weights["elo"],
                 "home_win": e["home_win"],
                 "draw": e["draw"],
                 "away_win": e["away_win"],
@@ -70,9 +94,9 @@ def predict(home_team, away_team, league="PL", match_date=None):
         x = xgboost_model.predict(home_team, away_team, league, match_date)
         if x:
             predictions["xgboost"] = x
-            available_weight += WEIGHTS["xgboost"]
+            available_weight += weights["xgboost"]
             model_details["xgboost"] = {
-                "weight": WEIGHTS["xgboost"],
+                "weight": weights["xgboost"],
                 "home_win": x["home_win"],
                 "draw": x["draw"],
                 "away_win": x["away_win"],
@@ -86,9 +110,9 @@ def predict(home_team, away_team, league="PL", match_date=None):
         s = sentiment_model.predict(home_team, away_team, league)
         if s:
             predictions["sentiment"] = s
-            available_weight += WEIGHTS["sentiment"]
+            available_weight += weights["sentiment"]
             model_details["sentiment"] = {
-                "weight": WEIGHTS["sentiment"],
+                "weight": weights["sentiment"],
                 "home_win": s["home_win"],
                 "draw": s["draw"],
                 "away_win": s["away_win"],
@@ -108,7 +132,7 @@ def predict(home_team, away_team, league="PL", match_date=None):
     away_win = 0
 
     for model_name, pred in predictions.items():
-        w = WEIGHTS[model_name] / available_weight  # re-normalised weight
+        w = weights[model_name] / available_weight  # re-normalised weight
         home_win += pred["home_win"] * w
         draw += pred["draw"] * w
         away_win += pred["away_win"] * w
@@ -129,7 +153,7 @@ def predict(home_team, away_team, league="PL", match_date=None):
     confidences = []
     for model_name, pred in predictions.items():
         if "confidence" in pred:
-            w = WEIGHTS[model_name] / available_weight
+            w = weights[model_name] / available_weight
             confidences.append(pred["confidence"] * w)
     confidence = sum(confidences) if confidences else 0.5
 
@@ -222,3 +246,262 @@ def calculate_value(prediction, odds_data):
             })
 
     return sorted(value_bets, key=lambda x: x["edge_percent"], reverse=True)
+
+
+def optimize_weights(league="PL"):
+    """
+    Optimize ensemble model weights by minimizing Brier score
+    on historical predictions that have actual results.
+
+    Uses scipy.optimize to find the best weight combination.
+    Saves optimized weights to data/app_settings.json under key "model_weights".
+    """
+    try:
+        from scipy.optimize import minimize
+    except ImportError:
+        logger.error("scipy not installed, falling back to grid search")
+        return _optimize_weights_grid(league)
+
+    # Get all historical predictions with actual results
+    rows = db.fetch_all(
+        """SELECT p.poisson_home, p.poisson_draw, p.poisson_away,
+                  p.elo_home, p.elo_draw, p.elo_away,
+                  p.xgboost_home, p.xgboost_draw, p.xgboost_away,
+                  p.sentiment_home, p.sentiment_draw, p.sentiment_away,
+                  m.ft_result
+           FROM predictions p
+           JOIN matches m ON p.league = m.league
+                AND p.home_team = m.home_team
+                AND p.away_team = m.away_team
+                AND p.match_date = m.match_date
+           WHERE p.league = ? AND m.ft_result IS NOT NULL
+                 AND p.poisson_home IS NOT NULL
+                 AND p.elo_home IS NOT NULL""",
+        [league]
+    )
+
+    if not rows or len(rows) < 20:
+        logger.warning("Not enough settled predictions to optimize weights: %d", len(rows) if rows else 0)
+        return None
+
+    def brier_score(weights_raw):
+        """Calculate ensemble Brier score for a given set of weights."""
+        # Softmax to ensure weights sum to 1 and are positive
+        import numpy as np
+        w = np.exp(weights_raw) / np.sum(np.exp(weights_raw))
+        w_poisson, w_elo, w_xgboost, w_sentiment = w
+
+        total_brier = 0.0
+        count = 0
+
+        for row in rows:
+            # Collect available model predictions
+            model_preds = {}
+            if row.get("poisson_home") is not None:
+                model_preds["poisson"] = (row["poisson_home"], row["poisson_draw"], row["poisson_away"])
+            if row.get("elo_home") is not None:
+                model_preds["elo"] = (row["elo_home"], row["elo_draw"], row["elo_away"])
+            if row.get("xgboost_home") is not None:
+                model_preds["xgboost"] = (row["xgboost_home"], row["xgboost_draw"], row["xgboost_away"])
+            if row.get("sentiment_home") is not None:
+                model_preds["sentiment"] = (row["sentiment_home"], row["sentiment_draw"], row["sentiment_away"])
+
+            if not model_preds:
+                continue
+
+            weight_map = {"poisson": w_poisson, "elo": w_elo, "xgboost": w_xgboost, "sentiment": w_sentiment}
+
+            avail_weight = sum(weight_map[m] for m in model_preds)
+            if avail_weight <= 0:
+                continue
+
+            # Blend
+            h = sum(model_preds[m][0] * weight_map[m] / avail_weight for m in model_preds)
+            d = sum(model_preds[m][1] * weight_map[m] / avail_weight for m in model_preds)
+            a = sum(model_preds[m][2] * weight_map[m] / avail_weight for m in model_preds)
+
+            # Normalize
+            total = h + d + a
+            if total > 0:
+                h /= total
+                d /= total
+                a /= total
+
+            # Actual result
+            actual = row["ft_result"]
+            actual_h = 1.0 if actual == "H" else 0.0
+            actual_d = 1.0 if actual == "D" else 0.0
+            actual_a = 1.0 if actual == "A" else 0.0
+
+            total_brier += (h - actual_h) ** 2 + (d - actual_d) ** 2 + (a - actual_a) ** 2
+            count += 1
+
+        return total_brier / count if count > 0 else 999.0
+
+    import numpy as np
+
+    # Start from current weights (in log space for softmax parameterization)
+    current = _load_weights()
+    x0 = np.log([current["poisson"], current["elo"], current["xgboost"], current["sentiment"]])
+
+    result = minimize(brier_score, x0, method="Nelder-Mead",
+                      options={"maxiter": 1000, "xatol": 1e-4, "fatol": 1e-6})
+
+    # Convert back from log space
+    optimal_raw = result.x
+    optimal_w = np.exp(optimal_raw) / np.sum(np.exp(optimal_raw))
+
+    optimized_weights = {
+        "poisson": round(float(optimal_w[0]), 4),
+        "elo": round(float(optimal_w[1]), 4),
+        "xgboost": round(float(optimal_w[2]), 4),
+        "sentiment": round(float(optimal_w[3]), 4),
+    }
+
+    optimal_brier = brier_score(optimal_raw)
+
+    # Save to settings file
+    try:
+        settings_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data", "app_settings.json")
+        try:
+            with open(settings_path, "r") as f:
+                settings = json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError):
+            settings = {}
+
+        settings["model_weights"] = optimized_weights
+        settings["model_weights_brier"] = round(optimal_brier, 4)
+        settings["model_weights_optimized_at"] = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+        settings["model_weights_sample_size"] = len(rows)
+
+        os.makedirs(os.path.dirname(settings_path), exist_ok=True)
+        with open(settings_path, "w") as f:
+            json.dump(settings, f, indent=2)
+
+        logger.info("Optimized weights saved: %s (Brier: %.4f, samples: %d)",
+                     optimized_weights, optimal_brier, len(rows))
+    except Exception as e:
+        logger.error("Failed to save optimized weights: %s", e)
+
+    return {
+        "weights": optimized_weights,
+        "brier": round(optimal_brier, 4),
+        "sample_size": len(rows),
+    }
+
+
+def _optimize_weights_grid(league="PL"):
+    """Fallback grid search for weight optimization when scipy is not available."""
+    rows = db.fetch_all(
+        """SELECT p.poisson_home, p.poisson_draw, p.poisson_away,
+                  p.elo_home, p.elo_draw, p.elo_away,
+                  p.xgboost_home, p.xgboost_draw, p.xgboost_away,
+                  p.sentiment_home, p.sentiment_draw, p.sentiment_away,
+                  m.ft_result
+           FROM predictions p
+           JOIN matches m ON p.league = m.league
+                AND p.home_team = m.home_team
+                AND p.away_team = m.away_team
+                AND p.match_date = m.match_date
+           WHERE p.league = ? AND m.ft_result IS NOT NULL
+                 AND p.poisson_home IS NOT NULL
+                 AND p.elo_home IS NOT NULL""",
+        [league]
+    )
+
+    if not rows or len(rows) < 20:
+        logger.warning("Not enough data for grid search weight optimization")
+        return None
+
+    best_brier = 999.0
+    best_weights = None
+
+    # Grid search with step 0.05
+    step = 0.05
+    import numpy as np
+    for w_p in np.arange(0.10, 0.60, step):
+        for w_e in np.arange(0.10, 0.50, step):
+            for w_x in np.arange(0.10, 0.50, step):
+                w_s = 1.0 - w_p - w_e - w_x
+                if w_s < 0.02 or w_s > 0.30:
+                    continue
+
+                total_brier = 0.0
+                count = 0
+                weight_map = {"poisson": w_p, "elo": w_e, "xgboost": w_x, "sentiment": w_s}
+
+                for row in rows:
+                    model_preds = {}
+                    if row.get("poisson_home") is not None:
+                        model_preds["poisson"] = (row["poisson_home"], row["poisson_draw"], row["poisson_away"])
+                    if row.get("elo_home") is not None:
+                        model_preds["elo"] = (row["elo_home"], row["elo_draw"], row["elo_away"])
+                    if row.get("xgboost_home") is not None:
+                        model_preds["xgboost"] = (row["xgboost_home"], row["xgboost_draw"], row["xgboost_away"])
+                    if row.get("sentiment_home") is not None:
+                        model_preds["sentiment"] = (row["sentiment_home"], row["sentiment_draw"], row["sentiment_away"])
+
+                    if not model_preds:
+                        continue
+
+                    avail_w = sum(weight_map[m] for m in model_preds)
+                    if avail_w <= 0:
+                        continue
+
+                    h = sum(model_preds[m][0] * weight_map[m] / avail_w for m in model_preds)
+                    d = sum(model_preds[m][1] * weight_map[m] / avail_w for m in model_preds)
+                    a = sum(model_preds[m][2] * weight_map[m] / avail_w for m in model_preds)
+
+                    total_p = h + d + a
+                    if total_p > 0:
+                        h /= total_p
+                        d /= total_p
+                        a /= total_p
+
+                    actual = row["ft_result"]
+                    total_brier += (h - (1 if actual == "H" else 0)) ** 2 + \
+                                   (d - (1 if actual == "D" else 0)) ** 2 + \
+                                   (a - (1 if actual == "A" else 0)) ** 2
+                    count += 1
+
+                if count > 0:
+                    avg_brier = total_brier / count
+                    if avg_brier < best_brier:
+                        best_brier = avg_brier
+                        best_weights = {
+                            "poisson": round(float(w_p), 4),
+                            "elo": round(float(w_e), 4),
+                            "xgboost": round(float(w_x), 4),
+                            "sentiment": round(float(w_s), 4),
+                        }
+
+    if best_weights:
+        # Save to settings
+        try:
+            settings_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data", "app_settings.json")
+            try:
+                with open(settings_path, "r") as f:
+                    settings = json.load(f)
+            except (FileNotFoundError, json.JSONDecodeError):
+                settings = {}
+
+            settings["model_weights"] = best_weights
+            settings["model_weights_brier"] = round(best_brier, 4)
+            settings["model_weights_optimized_at"] = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+            settings["model_weights_sample_size"] = len(rows)
+
+            os.makedirs(os.path.dirname(settings_path), exist_ok=True)
+            with open(settings_path, "w") as f:
+                json.dump(settings, f, indent=2)
+
+            logger.info("Grid search optimized weights: %s (Brier: %.4f)", best_weights, best_brier)
+        except Exception as e:
+            logger.error("Failed to save grid search weights: %s", e)
+
+        return {
+            "weights": best_weights,
+            "brier": round(best_brier, 4),
+            "sample_size": len(rows),
+        }
+
+    return None

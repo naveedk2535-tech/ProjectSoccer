@@ -302,6 +302,22 @@ CREATE TABLE IF NOT EXISTS user_bets (
     notes TEXT
 );
 
+-- CLV (Closing Line Value) tracking
+CREATE TABLE IF NOT EXISTS clv_tracking (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    league TEXT,
+    match_date DATE,
+    home_team TEXT,
+    away_team TEXT,
+    bet_type TEXT,
+    model_probability REAL,
+    pinnacle_closing_implied REAL,
+    clv_percent REAL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_clv_league_date ON clv_tracking(league, match_date);
+
 -- Indexes for performance
 CREATE INDEX IF NOT EXISTS idx_matches_league_date ON matches(league, match_date);
 CREATE INDEX IF NOT EXISTS idx_matches_teams ON matches(home_team, away_team);
