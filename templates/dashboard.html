@@ -288,9 +288,9 @@
                     {% set source_info = {
                         "football_data_org": {"name": "Fixtures & Standings", "refresh": "2x/day"},
                         "football_data_uk": {"name": "Historical Results", "refresh": "every 2 days"},
-                        "odds_api": {"name": "Bookmaker Odds", "refresh": "match days only"},
-                        "reddit": {"name": "Reddit Sentiment", "refresh": "1x/day"},
-                        "newsapi": {"name": "News Sentiment", "refresh": "1x/day"}
+                        "odds_api": {"name": "Bookmaker Odds", "refresh": "5x/day"},
+                        "reddit": {"name": "Reddit Sentiment", "refresh": "2x/day"},
+                        "newsapi": {"name": "News Sentiment", "refresh": "2x/day"}
                     } %}
                     {% for source, info in data_status.items() if source != 'summary' %}
                     <div class="flex items-center justify-between text-xs">
