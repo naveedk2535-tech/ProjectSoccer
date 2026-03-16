@@ -179,12 +179,34 @@ def task_predictions():
         logger.info("  %s: %d fixtures predicted", league["name"], len(fixtures))
 
 
+def task_tracker():
+    """Generate and settle model tracker entries."""
+    logger.info("Running model tracker...")
+
+    # Use the Flask app endpoints internally
+    from app import app as flask_app
+    with flask_app.test_client() as client:
+        # Simulate logged-in session
+        with client.session_transaction() as sess:
+            sess["logged_in"] = True
+            sess["username"] = "scheduler"
+
+        resp = client.post("/api/tracker/generate")
+        gen = resp.get_json()
+        logger.info("  Tracker generate: %s", gen)
+
+        resp = client.post("/api/tracker/settle")
+        settle = resp.get_json()
+        logger.info("  Tracker settle: %s", settle)
+
+
 def run_daily():
-    """Daily task: fixtures + odds + sentiment + predictions."""
+    """Daily task: fixtures + odds + sentiment + predictions + tracker."""
     task_fixtures()
     task_odds()
     task_sentiment()
     task_predictions()
+    task_tracker()
 
 
 def task_retrain():
@@ -278,7 +300,7 @@ if __name__ == "__main__":
     parser.add_argument("--task", required=True,
                         choices=["daily", "weekly", "all", "fixtures", "odds",
                                  "sentiment", "csv", "ratings", "predictions",
-                                 "retrain", "optimize_weights"],
+                                 "retrain", "optimize_weights", "tracker"],
                         help="Which task to run")
     args = parser.parse_args()
 
@@ -294,6 +316,7 @@ if __name__ == "__main__":
         "predictions": task_predictions,
         "retrain": task_retrain,
         "optimize_weights": task_optimize_weights,
+        "tracker": task_tracker,
     }
 
     logger.info("Starting task: %s", args.task)

@@ -6,6 +6,7 @@ import logging
 import json
 import os
 from datetime import datetime
+from collections import defaultdict
 
 from functools import wraps
 from flask import Flask, render_template, jsonify, request, session, redirect, url_for
@@ -714,6 +715,253 @@ def api_delete_bet(bet_id):
     """Delete a tracked bet."""
     db.execute("DELETE FROM user_bets WHERE id = ?", [bet_id])
     return jsonify({"status": "ok"})
+
+@app.route("/tracker")
+@login_required
+def tracker_view():
+    """Model Tracker -- automated prediction vs result tracking."""
+    league = request.args.get("league", "")
+
+    # Query all tracker entries
+    if league:
+        entries = db.fetch_all(
+            "SELECT * FROM model_tracker WHERE league = ? ORDER BY match_date DESC",
+            [league]
+        )
+    else:
+        entries = db.fetch_all(
+            "SELECT * FROM model_tracker ORDER BY match_date DESC"
+        )
+
+    settled = [e for e in entries if e["status"] == "settled"]
+    pending = [e for e in entries if e["status"] == "pending"]
+
+    # -- Top pick stats --
+    top_correct = sum(1 for e in settled if e["top_pick_correct"] == 1)
+    top_total = len(settled)
+    top_accuracy = (top_correct / top_total * 100) if top_total > 0 else 0
+    top_pnl = sum(e["top_pick_pnl"] or 0 for e in settled)
+    top_staked = top_total * 100
+    top_roi = (top_pnl / top_staked * 100) if top_staked > 0 else 0
+
+    # -- Value bet stats --
+    value_entries = [e for e in settled if e["is_value_bet"] == 1]
+    value_correct = sum(1 for e in value_entries if e["value_bet_correct"] == 1)
+    value_total = len(value_entries)
+    value_accuracy = (value_correct / value_total * 100) if value_total > 0 else 0
+    value_pnl = sum(e["value_bet_pnl"] or 0 for e in value_entries)
+    value_staked = value_total * 100
+    value_roi = (value_pnl / value_staked * 100) if value_staked > 0 else 0
+    avg_edge = (sum(e["value_edge"] or 0 for e in value_entries) / value_total) if value_total > 0 else 0
+
+    # -- Current streak (top pick) --
+    current_streak = 0
+    streak_type = None
+    for e in sorted(settled, key=lambda x: x["match_date"], reverse=True):
+        if streak_type is None:
+            streak_type = "W" if e["top_pick_correct"] == 1 else "L"
+            current_streak = 1
+        elif (streak_type == "W" and e["top_pick_correct"] == 1) or \
+             (streak_type == "L" and e["top_pick_correct"] != 1):
+            current_streak += 1
+        else:
+            break
+
+    # -- Best/worst month --
+    monthly_pnl = defaultdict(float)
+    for e in settled:
+        month_key = e["match_date"][:7] if e["match_date"] else "unknown"
+        monthly_pnl[month_key] += e["top_pick_pnl"] or 0
+    best_month = max(monthly_pnl.items(), key=lambda x: x[1]) if monthly_pnl else ("N/A", 0)
+    worst_month = min(monthly_pnl.items(), key=lambda x: x[1]) if monthly_pnl else ("N/A", 0)
+
+    # -- Breakdown by predicted outcome --
+    outcome_stats = {}
+    for outcome in ["H", "D", "A"]:
+        oc_entries = [e for e in settled if e["predicted_outcome"] == outcome]
+        oc_correct = sum(1 for e in oc_entries if e["top_pick_correct"] == 1)
+        oc_total = len(oc_entries)
+        outcome_stats[outcome] = {
+            "total": oc_total,
+            "correct": oc_correct,
+            "accuracy": round(oc_correct / oc_total * 100, 1) if oc_total > 0 else 0,
+        }
+
+    summary = {
+        "total": len(entries),
+        "settled": top_total,
+        "pending": len(pending),
+        "top_correct": top_correct,
+        "top_accuracy": round(top_accuracy, 1),
+        "top_pnl": round(top_pnl, 2),
+        "top_staked": top_staked,
+        "top_roi": round(top_roi, 1),
+        "value_total": value_total,
+        "value_correct": value_correct,
+        "value_accuracy": round(value_accuracy, 1),
+        "value_pnl": round(value_pnl, 2),
+        "value_staked": value_staked,
+        "value_roi": round(value_roi, 1),
+        "avg_edge": round(avg_edge, 1),
+        "current_streak": current_streak,
+        "streak_type": streak_type or "N/A",
+        "best_month": best_month[0],
+        "best_month_pnl": round(best_month[1], 2),
+        "worst_month": worst_month[0],
+        "worst_month_pnl": round(worst_month[1], 2),
+        "outcome_stats": outcome_stats,
+    }
+
+    return render_template("tracker.html",
+        league=league,
+        leagues=config.LEAGUES,
+        entries=entries,
+        summary=summary,
+        now=datetime.utcnow(),
+    )
+
+
+@app.route("/api/tracker/settle", methods=["POST"])
+@login_required
+def api_tracker_settle():
+    """Settle pending tracker entries against actual match results."""
+    pending = db.fetch_all(
+        "SELECT * FROM model_tracker WHERE status = 'pending'"
+    )
+    settled_count = 0
+    for entry in pending:
+        # Look for a completed match result
+        match = db.fetch_one(
+            """SELECT * FROM matches WHERE league = ? AND home_team = ? AND away_team = ?
+               AND match_date LIKE ? AND ft_result IS NOT NULL
+               ORDER BY match_date DESC LIMIT 1""",
+            [entry["league"], entry["home_team"], entry["away_team"],
+             entry["match_date"][:10] + "%"]
+        )
+        if not match:
+            continue
+
+        actual_result = match["ft_result"]
+        home_goals = match["ft_home_goals"]
+        away_goals = match["ft_away_goals"]
+
+        # Top pick P&L
+        top_correct = 1 if entry["predicted_outcome"] == actual_result else 0
+        predicted_odds = entry["predicted_odds"] or 2.0
+        top_pnl = round(100 * predicted_odds - 100, 2) if top_correct else -100.0
+
+        # Value bet P&L
+        value_correct = None
+        value_pnl = None
+        if entry["is_value_bet"] == 1 and entry["value_bet_type"] and entry["value_odds"]:
+            vb_type = entry["value_bet_type"]
+            # Map value_bet_type to result
+            vb_result_map = {"home_win": "H", "draw": "D", "away_win": "A"}
+            vb_expected = vb_result_map.get(vb_type)
+            if vb_expected:
+                value_correct = 1 if actual_result == vb_expected else 0
+                value_pnl = round(100 * entry["value_odds"] - 100, 2) if value_correct else -100.0
+
+        db.execute(
+            """UPDATE model_tracker SET
+                actual_result = ?, actual_home_goals = ?, actual_away_goals = ?,
+                top_pick_correct = ?, top_pick_pnl = ?,
+                value_bet_correct = ?, value_bet_pnl = ?,
+                status = 'settled', settled_at = datetime('now')
+               WHERE id = ?""",
+            [actual_result, home_goals, away_goals,
+             top_correct, top_pnl, value_correct, value_pnl,
+             entry["id"]]
+        )
+        settled_count += 1
+
+    return jsonify({"status": "ok", "settled": settled_count, "checked": len(pending)})
+
+
+@app.route("/api/tracker/generate", methods=["POST"])
+@login_required
+def api_tracker_generate():
+    """Generate tracker entries from predictions that don't have one yet."""
+    predictions = db.fetch_all(
+        """SELECT p.* FROM predictions p
+           WHERE p.ensemble_home IS NOT NULL
+             AND NOT EXISTS (
+                 SELECT 1 FROM model_tracker t
+                 WHERE t.league = p.league AND t.match_date = p.match_date
+                   AND t.home_team = p.home_team AND t.away_team = p.away_team
+             )"""
+    )
+    created = 0
+    for pred in predictions:
+        home_prob = pred["ensemble_home"] or 0
+        draw_prob = pred["ensemble_draw"] or 0
+        away_prob = pred["ensemble_away"] or 0
+
+        # Determine predicted outcome
+        max_prob = max(home_prob, draw_prob, away_prob)
+        if max_prob == 0:
+            continue
+        if home_prob == max_prob:
+            predicted_outcome = "H"
+        elif away_prob == max_prob:
+            predicted_outcome = "A"
+        else:
+            predicted_outcome = "D"
+
+        # Implied odds for predicted outcome
+        predicted_odds = round(1 / max_prob, 2) if max_prob > 0 else None
+
+        # Check for value bets on this match
+        value_bets = db.fetch_all(
+            """SELECT * FROM value_bets
+               WHERE league = ? AND match_date = ? AND home_team = ? AND away_team = ?
+               ORDER BY edge_percent DESC LIMIT 1""",
+            [pred["league"], pred["match_date"], pred["home_team"], pred["away_team"]]
+        )
+        is_value_bet = 0
+        value_bet_type = None
+        value_edge = None
+        value_odds = None
+        if value_bets:
+            vb = value_bets[0]
+            if (vb.get("edge_percent") or 0) >= 5.0:
+                is_value_bet = 1
+                value_bet_type = vb["bet_type"]
+                value_edge = vb["edge_percent"]
+                value_odds = vb["best_odds"]
+
+        # Get best bookmaker odds for the predicted outcome
+        odds_map = {"H": "home_odds", "D": "draw_odds", "A": "away_odds"}
+        odds_col = odds_map.get(predicted_outcome, "home_odds")
+        best_odds_row = db.fetch_one(
+            f"""SELECT MAX({odds_col}) as best FROM odds
+                WHERE league = ? AND home_team = ? AND away_team = ?""",
+            [pred["league"], pred["home_team"], pred["away_team"]]
+        )
+        if best_odds_row and best_odds_row["best"]:
+            predicted_odds = best_odds_row["best"]
+
+        db.upsert("model_tracker", {
+            "league": pred["league"],
+            "match_date": pred["match_date"],
+            "home_team": pred["home_team"],
+            "away_team": pred["away_team"],
+            "predicted_outcome": predicted_outcome,
+            "home_prob": home_prob,
+            "draw_prob": draw_prob,
+            "away_prob": away_prob,
+            "predicted_odds": predicted_odds,
+            "confidence": pred.get("confidence"),
+            "is_value_bet": is_value_bet,
+            "value_bet_type": value_bet_type,
+            "value_edge": value_edge,
+            "value_odds": value_odds,
+            "status": "pending",
+        }, ["league", "match_date", "home_team", "away_team"])
+        created += 1
+
+    return jsonify({"status": "ok", "created": created})
+
 
 @app.route("/api/predict/<league>/<home_team>/<away_team>")
 @login_required

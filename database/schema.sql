@@ -326,3 +326,39 @@ CREATE INDEX IF NOT EXISTS idx_fixtures_date ON fixtures(league, match_date);
 CREATE INDEX IF NOT EXISTS idx_predictions_date ON predictions(league, match_date);
 CREATE INDEX IF NOT EXISTS idx_sentiment_team ON sentiment(league, team, score_date);
 CREATE INDEX IF NOT EXISTS idx_value_bets_date ON value_bets(league, match_date);
+
+-- Model tracker (automated prediction vs result tracking)
+CREATE TABLE IF NOT EXISTS model_tracker (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    league TEXT NOT NULL,
+    match_date DATE NOT NULL,
+    home_team TEXT NOT NULL,
+    away_team TEXT NOT NULL,
+    -- Model prediction
+    predicted_outcome TEXT,      -- H, D, A (highest probability)
+    home_prob REAL,
+    draw_prob REAL,
+    away_prob REAL,
+    predicted_odds REAL,         -- implied odds of predicted outcome
+    confidence REAL,
+    -- Value bet info (if any)
+    is_value_bet INTEGER DEFAULT 0,
+    value_bet_type TEXT,
+    value_edge REAL,
+    value_odds REAL,             -- best bookmaker odds for value bet
+    -- Actual result
+    actual_result TEXT,          -- H, D, A, or NULL if not played
+    actual_home_goals INTEGER,
+    actual_away_goals INTEGER,
+    -- P&L simulation ($100 per bet)
+    top_pick_correct INTEGER,    -- 1 if predicted_outcome == actual_result
+    top_pick_pnl REAL,           -- profit/loss on $100 bet at predicted_odds
+    value_bet_correct INTEGER,   -- 1 if value bet won
+    value_bet_pnl REAL,          -- profit/loss on $100 value bet
+    -- Status
+    status TEXT DEFAULT 'pending',  -- pending, settled
+    settled_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(league, match_date, home_team, away_team)
+);
+CREATE INDEX IF NOT EXISTS idx_model_tracker_date ON model_tracker(league, match_date);
