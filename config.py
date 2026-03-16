@@ -17,14 +17,14 @@ NEWS_API_KEY = os.getenv("NEWS_API_KEY")
 FLASK_SECRET_KEY = os.getenv("FLASK_SECRET_KEY", "dev-fallback-key")
 
 # --- Rate Limits (requests per window) ---
-# With 3 leagues, each "Refresh Everything" uses 3 odds calls, 3 fixture calls, etc.
-# Budget: 2 full refreshes/day + headroom
+# PAID TIER — more CPU, no proxy restrictions, scheduled tasks available
+# Budget: 3 full refreshes/day comfortably
 RATE_LIMITS = {
     "football_data_org": {"calls": 10, "period_seconds": 60},      # 10/min (API hard limit)
-    "odds_api":          {"calls": 8,  "period_seconds": 86400},    # 8/day = 2 full refreshes + 2 spare (~240/month, under 500)
-    "reddit":            {"calls": 4,  "period_seconds": 86400},    # 4/day = covers 2 full refreshes
-    "newsapi":           {"calls": 4,  "period_seconds": 86400},    # 4/day = covers 2 full refreshes
-    "football_data_uk":  {"calls": 3,  "period_seconds": 172800},   # 3 per 2 days (1 per league)
+    "odds_api":          {"calls": 12, "period_seconds": 86400},    # 12/day = 3-4 full refreshes (~360/month, under 500)
+    "reddit":            {"calls": 6,  "period_seconds": 86400},    # 6/day = covers 3 full refreshes
+    "newsapi":           {"calls": 6,  "period_seconds": 86400},    # 6/day = covers 3 full refreshes
+    "football_data_uk":  {"calls": 3,  "period_seconds": 86400},    # 3/day (1 per league, daily refresh now)
 }
 
 # --- Cache TTLs (seconds) ---
