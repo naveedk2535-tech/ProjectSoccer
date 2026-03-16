@@ -64,6 +64,100 @@
         </div>
     </div>
 
+    <!-- Prediction Bar + Sentiment Bar -->
+    {% if prediction %}
+    <div class="glass rounded-xl p-5 space-y-4">
+        <!-- Win Probability Bar -->
+        <div>
+            <div class="flex items-center justify-between text-xs mb-1.5">
+                <span class="text-emerald-400 font-semibold">{{ home_team }}</span>
+                <span class="text-gray-500 uppercase text-[10px] tracking-wider">Win Probability</span>
+                <span class="text-blue-400 font-semibold">{{ away_team }}</span>
+            </div>
+            <div class="h-8 rounded-full overflow-hidden flex bg-dark-700">
+                <div class="h-full bg-gradient-to-r from-emerald-600 to-emerald-500 flex items-center justify-end pr-2 transition-all duration-500"
+                     style="width: {{ (prediction.home_win * 100)|round(0)|int }}%">
+                    <span class="text-white text-xs font-bold font-mono">{{ (prediction.home_win * 100)|round(0)|int }}%</span>
+                </div>
+                <div class="h-full bg-gradient-to-r from-gray-600 to-gray-500 flex items-center justify-center transition-all duration-500"
+                     style="width: {{ (prediction.draw * 100)|round(0)|int }}%">
+                    <span class="text-white text-[10px] font-bold font-mono">{{ (prediction.draw * 100)|round(0)|int }}%</span>
+                </div>
+                <div class="h-full bg-gradient-to-r from-blue-500 to-blue-600 flex items-center justify-start pl-2 transition-all duration-500"
+                     style="width: {{ (prediction.away_win * 100)|round(0)|int }}%">
+                    <span class="text-white text-xs font-bold font-mono">{{ (prediction.away_win * 100)|round(0)|int }}%</span>
+                </div>
+            </div>
+            <div class="flex items-center justify-between mt-1 text-[10px] text-gray-600">
+                <span>Home Win</span>
+                <span>Draw</span>
+                <span>Away Win</span>
+            </div>
+        </div>
+
+        <!-- Sentiment Bar -->
+        {% set home_s = home_sentiment.combined_score if home_sentiment and home_sentiment.combined_score else 0 %}
+        {% set away_s = away_sentiment.combined_score if away_sentiment and away_sentiment.combined_score else 0 %}
+        {% set sent_diff = home_s - away_s %}
+        <div>
+            <div class="flex items-center justify-between text-xs mb-1.5">
+                <span class="{% if home_s > 0.05 %}text-emerald-400{% elif home_s < -0.05 %}text-red-400{% else %}text-gray-400{% endif %} font-semibold">
+                    {% if home_s > 0.05 %}Positive{% elif home_s < -0.05 %}Negative{% else %}Neutral{% endif %}
+                    <span class="font-mono text-[10px] ml-1">({{ '%+.2f'|format(home_s) }})</span>
+                </span>
+                <span class="text-gray-500 uppercase text-[10px] tracking-wider">Sentiment</span>
+                <span class="{% if away_s > 0.05 %}text-emerald-400{% elif away_s < -0.05 %}text-red-400{% else %}text-gray-400{% endif %} font-semibold">
+                    {% if away_s > 0.05 %}Positive{% elif away_s < -0.05 %}Negative{% else %}Neutral{% endif %}
+                    <span class="font-mono text-[10px] ml-1">({{ '%+.2f'|format(away_s) }})</span>
+                </span>
+            </div>
+            <div class="h-5 rounded-full overflow-hidden flex bg-dark-700">
+                {% set home_pct = ((home_s + 1) / 2 * 100)|round(0)|int %}
+                {% set away_pct = ((away_s + 1) / 2 * 100)|round(0)|int %}
+                <!-- Home sentiment side -->
+                <div class="h-full flex items-center justify-center transition-all duration-500"
+                     style="width: 50%;
+                     background: linear-gradient(90deg,
+                        {% if home_s > 0.05 %}rgba(16,185,129,{{ (home_s * 0.8)|round(2) }}){% elif home_s < -0.05 %}rgba(239,68,68,{{ (-home_s * 0.8)|round(2) }}){% else %}rgba(75,85,99,0.3){% endif %},
+                        rgba(30,41,59,0.3));">
+                    <span class="text-[10px] font-mono text-gray-300">{{ home_team[:3]|upper }}</span>
+                </div>
+                <!-- Divider -->
+                <div class="w-px h-full bg-gray-600"></div>
+                <!-- Away sentiment side -->
+                <div class="h-full flex items-center justify-center transition-all duration-500"
+                     style="width: 50%;
+                     background: linear-gradient(90deg,
+                        rgba(30,41,59,0.3),
+                        {% if away_s > 0.05 %}rgba(16,185,129,{{ (away_s * 0.8)|round(2) }}){% elif away_s < -0.05 %}rgba(239,68,68,{{ (-away_s * 0.8)|round(2) }}){% else %}rgba(75,85,99,0.3){% endif %});">
+                    <span class="text-[10px] font-mono text-gray-300">{{ away_team[:3]|upper }}</span>
+                </div>
+            </div>
+            <div class="flex items-center justify-between mt-1 text-[10px] text-gray-600">
+                <span>
+                    {% if home_sentiment and home_sentiment.reddit_volume %}
+                    Reddit: {{ home_sentiment.reddit_volume }} mentions
+                    {% else %}No data{% endif %}
+                </span>
+                <span>
+                    {% if sent_diff > 0.1 %}
+                    <span class="text-emerald-500">{{ home_team }} favoured</span>
+                    {% elif sent_diff < -0.1 %}
+                    <span class="text-blue-400">{{ away_team }} favoured</span>
+                    {% else %}
+                    <span class="text-gray-500">Even sentiment</span>
+                    {% endif %}
+                </span>
+                <span>
+                    {% if away_sentiment and away_sentiment.reddit_volume %}
+                    Reddit: {{ away_sentiment.reddit_volume }} mentions
+                    {% else %}No data{% endif %}
+                </span>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
     <!-- Bet Calculator -->
     <div class="glass rounded-xl p-6" x-data="betCalc()">
         <div class="flex items-center justify-between mb-4">
