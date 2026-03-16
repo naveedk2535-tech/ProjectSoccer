@@ -272,6 +272,95 @@ def match_detail(league, home_team, away_team):
         [league, away_team]
     )
 
+    # Fetch signal data for display
+    signals = {}
+
+    # Referee stats
+    referee_name = None
+    fixture = db.fetch_one(
+        "SELECT referee FROM fixtures WHERE league = ? AND home_team = ? AND away_team = ?",
+        [league, home_team, away_team]
+    )
+    if fixture and fixture.get("referee"):
+        referee_name = fixture["referee"]
+        ref_stats = db.fetch_one(
+            "SELECT * FROM referee_stats WHERE referee = ? AND league = ?",
+            [referee_name, league]
+        )
+        if ref_stats:
+            signals["referee"] = {
+                "name": referee_name,
+                "avg_goals": ref_stats.get("avg_total_goals"),
+                "over25_pct": (ref_stats.get("over25_pct", 0) or 0) * 100,
+                "avg_cards": ref_stats.get("avg_yellows"),
+                "matches": ref_stats.get("matches_officiated"),
+                "home_win_pct": (ref_stats.get("home_win_pct", 0) or 0) * 100,
+            }
+
+    # Half-time patterns
+    from models.poisson import calculate_half_profiles
+    try:
+        half_profiles = calculate_half_profiles(league)
+        hp = half_profiles.get(home_team, {})
+        if hp:
+            signals["home_half_profile"] = {
+                "first_half_goals": hp.get("home_avg_1h_goals", 0),
+                "second_half_goals": hp.get("home_avg_2h_goals", 0),
+                "comeback_rate": hp.get("comeback_rate", 0) * 100,
+                "collapse_rate": hp.get("collapse_rate", 0) * 100,
+            }
+        ap = half_profiles.get(away_team, {})
+        if ap:
+            signals["away_half_profile"] = {
+                "first_half_goals": ap.get("away_avg_1h_goals", 0),
+                "second_half_goals": ap.get("away_avg_2h_goals", 0),
+                "comeback_rate": ap.get("comeback_rate", 0) * 100,
+                "collapse_rate": ap.get("collapse_rate", 0) * 100,
+            }
+    except Exception:
+        pass
+
+    # Fixture congestion
+    from datetime import timedelta
+    match_date_str = None
+    for fx in db.fetch_all("SELECT match_date FROM fixtures WHERE league = ? AND home_team = ? AND away_team = ?", [league, home_team, away_team]):
+        match_date_str = fx["match_date"][:10] if fx.get("match_date") else None
+    if match_date_str:
+        for team, key in [(home_team, "home"), (away_team, "away")]:
+            for days in [14, 30]:
+                try:
+                    cutoff = (datetime.strptime(match_date_str, "%Y-%m-%d") - timedelta(days=days)).strftime("%Y-%m-%d")
+                    count = db.fetch_one(
+                        "SELECT COUNT(*) as cnt FROM matches WHERE league = ? AND (home_team = ? OR away_team = ?) AND match_date >= ? AND match_date < ?",
+                        [league, team, team, cutoff, match_date_str]
+                    )
+                    signals[f"{key}_matches_{days}d"] = count["cnt"] if count else 0
+                except Exception:
+                    signals[f"{key}_matches_{days}d"] = 0
+
+    # Promoted team status
+    from models.elo import build_ratings
+    try:
+        elo_ratings = build_ratings(league)
+        signals["home_promoted"] = elo_ratings.get(home_team, {}).get("is_promoted", False)
+        signals["away_promoted"] = elo_ratings.get(away_team, {}).get("is_promoted", False)
+    except Exception:
+        pass
+
+    # Market movement
+    try:
+        odds_rows = db.fetch_all(
+            "SELECT home_odds, fetched_at FROM odds WHERE league = ? AND home_team = ? AND away_team = ? ORDER BY fetched_at ASC",
+            [league, home_team, away_team]
+        )
+        if odds_rows and len(odds_rows) >= 2:
+            signals["odds_opening"] = odds_rows[0].get("home_odds")
+            signals["odds_latest"] = odds_rows[-1].get("home_odds")
+            signals["odds_movement"] = round(odds_rows[0]["home_odds"] - odds_rows[-1]["home_odds"], 3) if odds_rows[0].get("home_odds") and odds_rows[-1].get("home_odds") else 0
+            signals["odds_fetch_count"] = len(odds_rows)
+    except Exception:
+        pass
+
     return render_template("match.html",
         league=league,
         league_config=league_config,
@@ -286,6 +375,7 @@ def match_detail(league, home_team, away_team):
         away_form=away_form,
         home_sentiment=home_sentiment,
         away_sentiment=away_sentiment,
+        signals=signals,
     )
 
 

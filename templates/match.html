@@ -474,6 +474,352 @@
             </div>
             {% endif %}
 
+            <!-- Prediction Signals Panel -->
+            {% if signals %}
+            <div class="glass rounded-xl overflow-hidden" x-data="{ showSignalHelp: false }">
+                <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+                    <div>
+                        <h3 class="text-sm font-semibold text-slate-500 uppercase tracking-wider">Prediction Signals</h3>
+                        <p class="text-xs text-slate-400 mt-0.5">Enhanced factors feeding into this prediction</p>
+                    </div>
+                    <button @click="showSignalHelp = !showSignalHelp" class="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-400 hover:text-slate-600 transition" title="What are these signals?">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                    </button>
+                </div>
+
+                <!-- Inline Help Panel -->
+                <div x-show="showSignalHelp" x-transition class="px-6 py-4 bg-slate-50 border-b border-slate-200 text-xs text-slate-600 space-y-2">
+                    <p class="font-semibold text-slate-700">What do these signals mean?</p>
+                    <p><span class="font-medium text-amber-700">Referee:</span> Some referees consistently oversee higher or lower scoring games. The avg goals/game and Over 2.5 rate show this referee's tendencies.</p>
+                    <p><span class="font-medium text-blue-700">Fixture Congestion:</span> Teams playing many games in a short window tend to fatigue. More matches in 14 days = higher congestion risk.</p>
+                    <p><span class="font-medium text-emerald-700">Market Movement:</span> When bookmaker odds shorten (decrease), money is backing that outcome. This shows how the market has moved since opening.</p>
+                    <p><span class="font-medium text-purple-700">Half-Time Patterns:</span> How each team's goals split between first and second halves. "Comeback" teams score more in the 2nd half; "Fast starters" score early.</p>
+                    <p><span class="font-medium text-rose-700">Promoted Status:</span> Newly promoted teams get an Elo adjustment. They often overperform early-season expectations.</p>
+                </div>
+
+                <div class="p-6">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+
+                        <!-- Referee Signal -->
+                        {% if signals.referee %}
+                        <div class="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
+                            <div class="flex items-center space-x-2 mb-3">
+                                <div class="w-8 h-8 rounded-lg bg-amber-50 flex items-center justify-center">
+                                    <svg class="w-4 h-4 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+                                    </svg>
+                                </div>
+                                <div>
+                                    <p class="text-[10px] text-amber-600 uppercase tracking-wider font-semibold">Referee</p>
+                                    <p class="text-sm font-bold text-slate-800">{{ signals.referee.name }}</p>
+                                </div>
+                            </div>
+                            <div class="space-y-2">
+                                {% if signals.referee.avg_goals is defined and signals.referee.avg_goals is not none %}
+                                <div class="flex items-center justify-between">
+                                    <span class="text-xs text-slate-500">Avg goals/game</span>
+                                    <div class="flex items-center space-x-1.5">
+                                        <span class="w-2 h-2 rounded-full {% if signals.referee.avg_goals > 2.8 %}bg-green-500{% elif signals.referee.avg_goals > 2.4 %}bg-yellow-500{% else %}bg-red-500{% endif %}"></span>
+                                        <span class="text-sm font-mono font-bold text-slate-800">{{ "%.2f"|format(signals.referee.avg_goals) }}</span>
+                                    </div>
+                                </div>
+                                {% endif %}
+                                {% if signals.referee.over25_pct is defined and signals.referee.over25_pct is not none %}
+                                <div class="flex items-center justify-between">
+                                    <span class="text-xs text-slate-500">Over 2.5 rate</span>
+                                    <span class="text-sm font-mono text-slate-700">{{ "%.0f"|format(signals.referee.over25_pct) }}%</span>
+                                </div>
+                                {% endif %}
+                                {% if signals.referee.avg_cards is defined and signals.referee.avg_cards is not none %}
+                                <div class="flex items-center justify-between">
+                                    <span class="text-xs text-slate-500">Avg cards/game</span>
+                                    <span class="text-sm font-mono text-slate-700">{{ "%.1f"|format(signals.referee.avg_cards) }}</span>
+                                </div>
+                                {% endif %}
+                                {% if signals.referee.matches is defined and signals.referee.matches is not none %}
+                                <div class="flex items-center justify-between">
+                                    <span class="text-xs text-slate-500">Matches officiated</span>
+                                    <span class="text-xs font-mono text-slate-400">{{ signals.referee.matches }}</span>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        <!-- Fixture Congestion Signal -->
+                        {% if signals.home_matches_14d is defined or signals.away_matches_14d is defined %}
+                        <div class="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
+                            <div class="flex items-center space-x-2 mb-3">
+                                <div class="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center">
+                                    <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                                    </svg>
+                                </div>
+                                <div>
+                                    <p class="text-[10px] text-blue-600 uppercase tracking-wider font-semibold">Fixture Congestion</p>
+                                </div>
+                            </div>
+                            <div class="space-y-3">
+                                <!-- Home team congestion -->
+                                <div>
+                                    <p class="text-xs font-medium text-slate-600 mb-1">{{ home_team }}</p>
+                                    <div class="flex items-center justify-between">
+                                        <span class="text-xs text-slate-500">Last 14 days</span>
+                                        <div class="flex items-center space-x-1.5">
+                                            <span class="w-2 h-2 rounded-full {% if signals.home_matches_14d is defined and signals.home_matches_14d >= 4 %}bg-red-500{% elif signals.home_matches_14d is defined and signals.home_matches_14d >= 3 %}bg-yellow-500{% else %}bg-green-500{% endif %}"></span>
+                                            <span class="text-sm font-mono font-bold text-slate-800">{{ signals.home_matches_14d|default(0) }} games</span>
+                                        </div>
+                                    </div>
+                                    {% if signals.home_matches_30d is defined %}
+                                    <div class="flex items-center justify-between mt-1">
+                                        <span class="text-xs text-slate-500">Last 30 days</span>
+                                        <span class="text-xs font-mono text-slate-400">{{ signals.home_matches_30d }} games</span>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                                <!-- Away team congestion -->
+                                <div class="pt-2 border-t border-slate-100">
+                                    <p class="text-xs font-medium text-slate-600 mb-1">{{ away_team }}</p>
+                                    <div class="flex items-center justify-between">
+                                        <span class="text-xs text-slate-500">Last 14 days</span>
+                                        <div class="flex items-center space-x-1.5">
+                                            <span class="w-2 h-2 rounded-full {% if signals.away_matches_14d is defined and signals.away_matches_14d >= 4 %}bg-red-500{% elif signals.away_matches_14d is defined and signals.away_matches_14d >= 3 %}bg-yellow-500{% else %}bg-green-500{% endif %}"></span>
+                                            <span class="text-sm font-mono font-bold text-slate-800">{{ signals.away_matches_14d|default(0) }} games</span>
+                                        </div>
+                                    </div>
+                                    {% if signals.away_matches_30d is defined %}
+                                    <div class="flex items-center justify-between mt-1">
+                                        <span class="text-xs text-slate-500">Last 30 days</span>
+                                        <span class="text-xs font-mono text-slate-400">{{ signals.away_matches_30d }} games</span>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        <!-- Market Movement Signal -->
+                        {% if signals.odds_opening is defined and signals.odds_opening %}
+                        <div class="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
+                            <div class="flex items-center space-x-2 mb-3">
+                                <div class="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center">
+                                    <svg class="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
+                                    </svg>
+                                </div>
+                                <div>
+                                    <p class="text-[10px] text-emerald-600 uppercase tracking-wider font-semibold">Market Movement</p>
+                                </div>
+                            </div>
+                            <div class="space-y-2">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-xs text-slate-500">Opening odds</span>
+                                    <span class="text-sm font-mono text-slate-700">{{ "%.2f"|format(signals.odds_opening) }}</span>
+                                </div>
+                                {% if signals.odds_latest is defined and signals.odds_latest %}
+                                <div class="flex items-center justify-between">
+                                    <span class="text-xs text-slate-500">Latest odds</span>
+                                    <span class="text-sm font-mono text-slate-700">{{ "%.2f"|format(signals.odds_latest) }}</span>
+                                </div>
+                                {% endif %}
+                                <div class="flex items-center justify-between">
+                                    <span class="text-xs text-slate-500">Movement</span>
+                                    <div class="flex items-center space-x-1.5">
+                                        {% if signals.odds_movement is defined %}
+                                            {% if signals.odds_movement > 0 %}
+                                            <span class="w-2 h-2 rounded-full bg-green-500"></span>
+                                            <span class="text-sm font-mono font-bold text-green-700">Shortening</span>
+                                            {% elif signals.odds_movement < 0 %}
+                                            <span class="w-2 h-2 rounded-full bg-red-500"></span>
+                                            <span class="text-sm font-mono font-bold text-red-600">Drifting</span>
+                                            {% else %}
+                                            <span class="w-2 h-2 rounded-full bg-slate-400"></span>
+                                            <span class="text-sm font-mono text-slate-500">Stable</span>
+                                            {% endif %}
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                <p class="text-[10px] text-slate-400 mt-1">
+                                    {% if signals.odds_movement is defined and signals.odds_movement > 0 %}
+                                        Money backing home — market agrees
+                                    {% elif signals.odds_movement is defined and signals.odds_movement < 0 %}
+                                        Money against home — market disagrees
+                                    {% else %}
+                                        No significant market shift
+                                    {% endif %}
+                                </p>
+                                {% if signals.odds_fetch_count is defined %}
+                                <div class="flex items-center justify-between mt-1">
+                                    <span class="text-xs text-slate-500">Data points</span>
+                                    <span class="text-xs font-mono text-slate-400">{{ signals.odds_fetch_count }} snapshots</span>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        <!-- Half-Time Profile: Home -->
+                        {% if signals.home_half_profile %}
+                        <div class="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
+                            <div class="flex items-center space-x-2 mb-3">
+                                <div class="w-8 h-8 rounded-lg bg-purple-50 flex items-center justify-center">
+                                    <svg class="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                    </svg>
+                                </div>
+                                <div>
+                                    <p class="text-[10px] text-purple-600 uppercase tracking-wider font-semibold">Half-Time Pattern</p>
+                                    <p class="text-xs font-medium text-slate-700">{{ home_team }}</p>
+                                </div>
+                            </div>
+                            <div class="space-y-2">
+                                {% if signals.home_half_profile.first_half_goals is defined %}
+                                <div class="flex items-center justify-between">
+                                    <span class="text-xs text-slate-500">1st half goals/gm</span>
+                                    <span class="text-sm font-mono font-bold text-slate-800">{{ "%.2f"|format(signals.home_half_profile.first_half_goals) }}</span>
+                                </div>
+                                {% endif %}
+                                {% if signals.home_half_profile.second_half_goals is defined %}
+                                <div class="flex items-center justify-between">
+                                    <span class="text-xs text-slate-500">2nd half goals/gm</span>
+                                    <span class="text-sm font-mono font-bold text-slate-800">{{ "%.2f"|format(signals.home_half_profile.second_half_goals) }}</span>
+                                </div>
+                                {% endif %}
+                                {% if signals.home_half_profile.comeback_rate is defined %}
+                                <div class="flex items-center justify-between">
+                                    <span class="text-xs text-slate-500">Comeback rate</span>
+                                    <div class="flex items-center space-x-1.5">
+                                        <span class="w-2 h-2 rounded-full {% if signals.home_half_profile.comeback_rate > 30 %}bg-green-500{% elif signals.home_half_profile.comeback_rate > 15 %}bg-yellow-500{% else %}bg-slate-400{% endif %}"></span>
+                                        <span class="text-sm font-mono text-slate-700">{{ "%.0f"|format(signals.home_half_profile.comeback_rate) }}%</span>
+                                    </div>
+                                </div>
+                                {% endif %}
+                                {% if signals.home_half_profile.collapse_rate is defined %}
+                                <div class="flex items-center justify-between">
+                                    <span class="text-xs text-slate-500">Collapse rate</span>
+                                    <span class="text-xs font-mono text-slate-400">{{ "%.0f"|format(signals.home_half_profile.collapse_rate) }}%</span>
+                                </div>
+                                {% endif %}
+                                <p class="text-[10px] text-slate-400 mt-1">
+                                    {% if signals.home_half_profile.second_half_goals is defined and signals.home_half_profile.first_half_goals is defined %}
+                                        {% if signals.home_half_profile.second_half_goals > signals.home_half_profile.first_half_goals %}
+                                            Strong 2nd-half team
+                                        {% elif signals.home_half_profile.first_half_goals > signals.home_half_profile.second_half_goals %}
+                                            Fast starters
+                                        {% else %}
+                                            Balanced across halves
+                                        {% endif %}
+                                    {% endif %}
+                                </p>
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        <!-- Half-Time Profile: Away -->
+                        {% if signals.away_half_profile %}
+                        <div class="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
+                            <div class="flex items-center space-x-2 mb-3">
+                                <div class="w-8 h-8 rounded-lg bg-purple-50 flex items-center justify-center">
+                                    <svg class="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                    </svg>
+                                </div>
+                                <div>
+                                    <p class="text-[10px] text-purple-600 uppercase tracking-wider font-semibold">Half-Time Pattern</p>
+                                    <p class="text-xs font-medium text-slate-700">{{ away_team }}</p>
+                                </div>
+                            </div>
+                            <div class="space-y-2">
+                                {% if signals.away_half_profile.first_half_goals is defined %}
+                                <div class="flex items-center justify-between">
+                                    <span class="text-xs text-slate-500">1st half goals/gm</span>
+                                    <span class="text-sm font-mono font-bold text-slate-800">{{ "%.2f"|format(signals.away_half_profile.first_half_goals) }}</span>
+                                </div>
+                                {% endif %}
+                                {% if signals.away_half_profile.second_half_goals is defined %}
+                                <div class="flex items-center justify-between">
+                                    <span class="text-xs text-slate-500">2nd half goals/gm</span>
+                                    <span class="text-sm font-mono font-bold text-slate-800">{{ "%.2f"|format(signals.away_half_profile.second_half_goals) }}</span>
+                                </div>
+                                {% endif %}
+                                {% if signals.away_half_profile.comeback_rate is defined %}
+                                <div class="flex items-center justify-between">
+                                    <span class="text-xs text-slate-500">Comeback rate</span>
+                                    <div class="flex items-center space-x-1.5">
+                                        <span class="w-2 h-2 rounded-full {% if signals.away_half_profile.comeback_rate > 30 %}bg-green-500{% elif signals.away_half_profile.comeback_rate > 15 %}bg-yellow-500{% else %}bg-slate-400{% endif %}"></span>
+                                        <span class="text-sm font-mono text-slate-700">{{ "%.0f"|format(signals.away_half_profile.comeback_rate) }}%</span>
+                                    </div>
+                                </div>
+                                {% endif %}
+                                {% if signals.away_half_profile.collapse_rate is defined %}
+                                <div class="flex items-center justify-between">
+                                    <span class="text-xs text-slate-500">Collapse rate</span>
+                                    <span class="text-xs font-mono text-slate-400">{{ "%.0f"|format(signals.away_half_profile.collapse_rate) }}%</span>
+                                </div>
+                                {% endif %}
+                                <p class="text-[10px] text-slate-400 mt-1">
+                                    {% if signals.away_half_profile.second_half_goals is defined and signals.away_half_profile.first_half_goals is defined %}
+                                        {% if signals.away_half_profile.second_half_goals > signals.away_half_profile.first_half_goals %}
+                                            Strong 2nd-half team
+                                        {% elif signals.away_half_profile.first_half_goals > signals.away_half_profile.second_half_goals %}
+                                            Fast starters
+                                        {% else %}
+                                            Balanced across halves
+                                        {% endif %}
+                                    {% endif %}
+                                </p>
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        <!-- Promoted Team Status -->
+                        {% if signals.home_promoted is defined or signals.away_promoted is defined %}
+                        <div class="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
+                            <div class="flex items-center space-x-2 mb-3">
+                                <div class="w-8 h-8 rounded-lg bg-rose-50 flex items-center justify-center">
+                                    <svg class="w-4 h-4 text-rose-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18"/>
+                                    </svg>
+                                </div>
+                                <div>
+                                    <p class="text-[10px] text-rose-600 uppercase tracking-wider font-semibold">Promoted Status</p>
+                                </div>
+                            </div>
+                            <div class="space-y-2">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-xs text-slate-500">{{ home_team }}</span>
+                                    {% if signals.home_promoted %}
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-rose-100 text-rose-700">Promoted</span>
+                                    {% else %}
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-slate-100 text-slate-500">Established</span>
+                                    {% endif %}
+                                </div>
+                                <div class="flex items-center justify-between">
+                                    <span class="text-xs text-slate-500">{{ away_team }}</span>
+                                    {% if signals.away_promoted %}
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-rose-100 text-rose-700">Promoted</span>
+                                    {% else %}
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-slate-100 text-slate-500">Established</span>
+                                    {% endif %}
+                                </div>
+                                <p class="text-[10px] text-slate-400 mt-1">
+                                    {% if signals.home_promoted or signals.away_promoted %}
+                                        Promoted teams get Elo adjustment (+75 boost)
+                                    {% else %}
+                                        No promoted teams in this fixture
+                                    {% endif %}
+                                </p>
+                            </div>
+                        </div>
+                        {% endif %}
+
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
             <!-- Scoreline Heatmap -->
             {% if prediction and prediction.scoreline_matrix %}
             <div class="glass rounded-xl overflow-hidden">
@@ -784,6 +1130,10 @@
                 <div>
                     <p class="font-bold text-slate-800">Model Signals</p>
                     <p>Shows what each of the 4 models (Poisson, Elo, XGBoost, Sentiment) thinks independently. If they agree = high confidence. If they disagree = be cautious.</p>
+                </div>
+                <div>
+                    <p class="font-bold text-slate-800">Prediction Signals</p>
+                    <p>Enhanced factors beyond the core models: referee tendencies (avg goals, cards), fixture congestion (games in last 14/30 days), market movement (how bookmaker odds have shifted), half-time goal patterns (which half each team scores in), and promoted team status. Click the ? icon on the panel for detailed explanations.</p>
                 </div>
                 <div>
                     <p class="font-bold text-slate-800">Scoreline Chart</p>
