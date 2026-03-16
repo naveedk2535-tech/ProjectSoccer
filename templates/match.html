@@ -525,6 +525,9 @@
                                 <div>
                                     <p class="text-[10px] text-amber-600 uppercase tracking-wider font-semibold">Referee</p>
                                     <p class="text-sm font-bold text-slate-800">{{ signals.referee.name }}</p>
+                                    {% if signals.referee.source and signals.referee.source != 'assigned' %}
+                                    <p class="text-[9px] text-slate-400">({{ signals.referee.source }})</p>
+                                    {% endif %}
                                 </div>
                             </div>
                             <div class="space-y-2">

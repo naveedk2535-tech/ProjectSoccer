@@ -309,12 +309,38 @@ def match_detail(league, home_team, away_team):
 
     # Referee stats
     referee_name = None
-    fixture = db.fetch_one(
+    referee_source = None
+    # Try 1: Check fixtures table (assigned referee for upcoming match)
+    fixture_ref = db.fetch_one(
         "SELECT referee FROM fixtures WHERE league = ? AND home_team = ? AND away_team = ?",
         [league, home_team, away_team]
     )
-    if fixture and fixture.get("referee"):
-        referee_name = fixture["referee"]
+    if fixture_ref and fixture_ref.get("referee"):
+        referee_name = fixture_ref["referee"]
+        referee_source = "assigned"
+    # Try 2: Check last time this exact matchup was played
+    if not referee_name:
+        last_h2h = db.fetch_one(
+            """SELECT referee FROM matches WHERE league = ? AND home_team = ? AND away_team = ?
+               AND referee IS NOT NULL AND referee != '' ORDER BY match_date DESC LIMIT 1""",
+            [league, home_team, away_team]
+        )
+        if last_h2h and last_h2h.get("referee"):
+            referee_name = last_h2h["referee"]
+            referee_source = "last matchup"
+    # Try 3: Most common referee for the home team's recent home matches
+    if not referee_name:
+        common_ref = db.fetch_one(
+            """SELECT referee, COUNT(*) as cnt FROM matches
+               WHERE league = ? AND home_team = ? AND referee IS NOT NULL AND referee != ''
+               GROUP BY referee ORDER BY cnt DESC LIMIT 1""",
+            [league, home_team]
+        )
+        if common_ref and common_ref.get("referee"):
+            referee_name = common_ref["referee"]
+            referee_source = "most common for " + home_team
+
+    if referee_name:
         ref_stats = db.fetch_one(
             "SELECT * FROM referee_stats WHERE referee = ? AND league = ?",
             [referee_name, league]
@@ -322,6 +348,7 @@ def match_detail(league, home_team, away_team):
         if ref_stats:
             signals["referee"] = {
                 "name": referee_name,
+                "source": referee_source,
                 "avg_goals": ref_stats.get("avg_total_goals"),
                 "over25_pct": (ref_stats.get("over25_pct", 0) or 0) * 100,
                 "avg_cards": ref_stats.get("avg_yellows"),

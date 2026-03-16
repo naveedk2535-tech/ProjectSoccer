@@ -545,7 +545,40 @@
             </div>
         </div>
 
-        <!-- All Prediction Signals -->
+        <!-- Prediction Signals Explained -->
+        <div class="mb-6">
+            <h3 class="text-sm font-semibold text-amber-400 uppercase tracking-wider mb-2">Prediction Signals (Match Detail Page)</h3>
+            <div class="bg-dark-700/50 rounded-lg p-4 text-sm text-gray-300 space-y-3">
+                <p class="text-gray-400 text-xs">When you click into a match, you'll see these enhanced signal cards. Here's what each one means:</p>
+
+                <div class="bg-dark-600 rounded p-3">
+                    <p class="text-amber-400 font-semibold text-xs">REFEREE</p>
+                    <p class="text-gray-400 text-xs mt-1">Shows the assigned referee (or best guess from historical data). Key stats: <span class="text-white">avg goals/game</span> — some referees consistently oversee higher-scoring matches. <span class="text-white">Over 2.5 rate</span> — how often their matches have 3+ goals. <span class="text-white">Avg cards</span> — how strict they are. A "green dot" referee (3+ avg goals) makes overs more likely. Note: if no referee is assigned yet, we show the referee from the last time these teams played or the most common referee at this stadium.</p>
+                </div>
+
+                <div class="bg-dark-600 rounded p-3">
+                    <p class="text-blue-400 font-semibold text-xs">FIXTURE CONGESTION</p>
+                    <p class="text-gray-400 text-xs mt-1">How many games each team has played recently. <span class="text-white">Last 14 days</span> — 4+ games = red (high fatigue risk), 3 = yellow, 1-2 = green (well rested). <span class="text-white">Last 30 days</span> — broader view. Teams in Champions League + domestic league get congested faster. The team with MORE recent games is at a disadvantage.</p>
+                </div>
+
+                <div class="bg-dark-600 rounded p-3">
+                    <p class="text-emerald-400 font-semibold text-xs">MARKET MOVEMENT</p>
+                    <p class="text-gray-400 text-xs mt-1">How bookmaker odds have changed since opening. <span class="text-white">Shortening</span> (green) = odds getting lower = money is backing that outcome = market agrees with the favourite. <span class="text-white">Drifting</span> (red) = odds getting higher = money moving away = market disagrees. <span class="text-white">Data points</span> = how many odds snapshots we have. More snapshots = more reliable movement signal. If our model AND the market movement agree, that's a strong signal.</p>
+                </div>
+
+                <div class="bg-dark-600 rounded p-3">
+                    <p class="text-purple-400 font-semibold text-xs">HALF-TIME PATTERNS</p>
+                    <p class="text-gray-400 text-xs mt-1">How each team's goals split between halves. <span class="text-white">1st/2nd half goals/gm</span> — if 2nd half > 1st half, the team is a "strong 2nd-half team" (fitness, tactical adjustments). <span class="text-white">Comeback rate</span> — % of games where team was losing at half-time but recovered (won or drew). High comeback rate = resilient team. <span class="text-white">Collapse rate</span> — % of games where team was winning at HT but dropped points. High collapse rate = can't hold leads.</p>
+                </div>
+
+                <div class="bg-dark-600 rounded p-3">
+                    <p class="text-rose-400 font-semibold text-xs">PROMOTED STATUS</p>
+                    <p class="text-gray-400 text-xs mt-1"><span class="text-white">Promoted</span> = team was just promoted from a lower division. They get a +75 Elo boost for their first 6 matches because newly promoted teams are typically underrated by pure statistics (no top-flight history). <span class="text-white">Established</span> = team has been in this league. This matters most in early-season predictions.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- All Prediction Factors Grid -->
         <div class="mb-6">
             <h3 class="text-sm font-semibold text-yellow-400 uppercase tracking-wider mb-2">All Factors in Every Prediction</h3>
             <div class="bg-dark-700/50 rounded-lg p-4 text-sm text-gray-300">
