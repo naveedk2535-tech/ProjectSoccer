@@ -894,9 +894,23 @@
         <div class="space-y-6">
             <!-- Value Bets for this match -->
             {% if value_bets %}
-            <div class="glass rounded-xl overflow-hidden glow-green">
+            <div class="glass rounded-xl overflow-hidden glow-green" x-data="{ showVBHelp: false }">
                 <div class="px-5 py-4 border-b border-slate-200">
-                    <h3 class="text-sm font-semibold text-green-700 uppercase tracking-wider">Value Bets Found</h3>
+                    <div class="flex items-center justify-between">
+                        <h3 class="text-sm font-semibold text-green-700 uppercase tracking-wider">Value Bets Found</h3>
+                        <button @click="showVBHelp = !showVBHelp" class="w-6 h-6 rounded-lg bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-400 hover:text-slate-600 transition">
+                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                        </button>
+                    </div>
+                    <div x-show="showVBHelp" x-cloak class="mt-3 bg-slate-50 border border-slate-200 rounded-lg p-3 text-xs text-slate-600 space-y-1.5">
+                        <p class="font-semibold text-slate-700">What do these numbers mean?</p>
+                        <p><span class="font-semibold text-green-700">Away Win / Home Win / Draw</span> — Which outcome our model thinks is underpriced by the bookmaker.</p>
+                        <p><span class="font-semibold text-green-700">+10.65%</span> (Edge) — How much our model disagrees with the bookmaker. Higher = more value. We only flag bets with 5%+ edge.</p>
+                        <p><span class="font-semibold text-slate-700">Model 26.3%</span> — Our model's probability for this outcome. The bookmaker thinks it's lower, so the odds are generous.</p>
+                        <p><span class="font-semibold text-slate-700">Best Odds 6.4</span> — The highest odds available from any bookmaker. Bet $10 at 6.4 odds = $64 back if it wins ($54 profit).</p>
+                        <p><span class="font-semibold text-slate-700">Kelly 3.16%</span> — Suggested stake as % of your bankroll. If your bankroll is $500, bet $15.80. We use quarter-Kelly (conservative) to protect against bad runs.</p>
+                        <p><span class="font-semibold text-slate-700">Bookmaker name</span> (e.g., Matchbook) — Which bookmaker is offering the best odds for this bet.</p>
+                    </div>
                 </div>
                 {% for vb in value_bets %}
                 <div class="px-5 py-4 border-b border-slate-200">
@@ -930,9 +944,20 @@
 
             <!-- Bookmaker Odds -->
             {% if best_odds and best_odds.all_bookmakers %}
-            <div class="glass rounded-xl overflow-hidden">
+            <div class="glass rounded-xl overflow-hidden" x-data="{ showOddsHelp: false }">
                 <div class="px-5 py-4 border-b border-slate-200">
-                    <h3 class="text-sm font-semibold text-slate-500 uppercase tracking-wider">Bookmaker Odds</h3>
+                    <div class="flex items-center justify-between">
+                        <h3 class="text-sm font-semibold text-slate-500 uppercase tracking-wider">Bookmaker Odds</h3>
+                        <button @click="showOddsHelp = !showOddsHelp" class="w-6 h-6 rounded-lg bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-400 hover:text-slate-600 transition">
+                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                        </button>
+                    </div>
+                    <div x-show="showOddsHelp" x-cloak class="mt-3 bg-slate-50 border border-slate-200 rounded-lg p-3 text-xs text-slate-600 space-y-1.5">
+                        <p class="font-semibold text-slate-700">How to read this table</p>
+                        <p><span class="font-semibold text-slate-700">H / D / A</span> — Decimal odds for Home Win, Draw, Away Win. Lower odds = bookmaker thinks it's more likely. Odds of 1.55 means "bet $10, get $15.50 back" (small profit, high chance). Odds of 6.40 means "bet $10, get $64 back" (big profit, low chance).</p>
+                        <p><span class="font-semibold text-slate-700">Margin</span> — The bookmaker's profit cut (vig/juice). Lower is better for you. <span class="text-green-700">Matchbook (0.5%)</span> is much fairer than a bookie at 13%. Pinnacle and Matchbook are the "sharpest" — their odds are closest to true probability.</p>
+                        <p><span class="font-semibold text-slate-700">Why it matters</span> — Always bet at the highest available odds. A difference between 5.00 and 6.40 on the same outcome is 28% more profit if you win. Shop around.</p>
+                    </div>
                 </div>
                 <table class="w-full text-xs">
                     <thead>
@@ -960,8 +985,23 @@
             {% endif %}
 
             <!-- Sentiment Deep Dive -->
-            <div class="glass rounded-xl p-5">
-                <h3 class="text-sm font-semibold text-purple-600 uppercase tracking-wider mb-4">Sentiment Analysis</h3>
+            <div class="glass rounded-xl p-5" x-data="{ showSentHelp: false }">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-sm font-semibold text-purple-600 uppercase tracking-wider">Sentiment Analysis</h3>
+                    <button @click="showSentHelp = !showSentHelp" class="w-6 h-6 rounded-lg bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-400 hover:text-slate-600 transition">
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    </button>
+                </div>
+                <div x-show="showSentHelp" x-cloak class="mb-4 bg-slate-50 border border-slate-200 rounded-lg p-3 text-xs text-slate-600 space-y-1.5">
+                    <p class="font-semibold text-slate-700">What does this show?</p>
+                    <p>We scan <span class="font-semibold text-orange-600">Reddit</span> (r/soccer, r/PremierLeague) and <span class="font-semibold text-blue-600">News headlines</span> for mentions of each team, then score the mood.</p>
+                    <p><span class="font-semibold text-slate-700">Combined Score</span> — Difference between home and away sentiment. Positive = internet favours home team. Negative = favours away.</p>
+                    <p><span class="font-semibold text-slate-700">Score (-1 to +1)</span> — How positive or negative the mentions are. Above +0.1 = positive vibes. Below -0.1 = negative (bad news, fan frustration).</p>
+                    <p><span class="font-semibold text-slate-700">Volume</span> — How many posts/articles mention the team. A sudden spike usually means something big happened (injury, sacking, drama).</p>
+                    <p><span class="font-semibold text-slate-700">Positive / Negative / Neutral</span> — Breakdown of individual post sentiments. More positive than negative = good mood around the team.</p>
+                    <p><span class="font-semibold text-slate-700">News Keywords</span> — Flagged words like "injury", "sacked", "ban", "transfer" that might affect performance.</p>
+                    <p class="text-slate-500 mt-1">Sentiment is the weakest signal (10% weight). It's a tiebreaker — if two teams are statistically equal but one has terrible vibes, the model nudges slightly against them.</p>
+                </div>
 
                 {% set home_s = home_sentiment.combined_score if home_sentiment and home_sentiment.combined_score else 0 %}
                 {% set away_s = away_sentiment.combined_score if away_sentiment and away_sentiment.combined_score else 0 %}
