@@ -2,12 +2,19 @@
 {% block title %}{{ home_team }} vs {{ away_team }}{% endblock %}
 
 {% block content %}
-<div class="space-y-6">
+<div class="space-y-6" x-data="{ showHelp: false }">
     <!-- Match Header -->
     <div class="glass rounded-xl p-6">
         <div class="flex items-center justify-between">
             <a href="/" class="text-xs text-slate-500 hover:text-slate-700 transition">&larr; Back to Command Center</a>
-            <span class="text-xs text-slate-400 font-mono">{{ league_config.name }}</span>
+            <div class="flex items-center space-x-2">
+                <span class="text-xs text-slate-400 font-mono">{{ league_config.name }}</span>
+                <button @click="showHelp = true" class="w-8 h-8 rounded-lg bg-slate-200 hover:bg-slate-300 flex items-center justify-center text-slate-500 hover:text-slate-700 transition" title="Help">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                </button>
+            </div>
         </div>
         <div class="flex items-center justify-center mt-6 space-x-8">
             <!-- Home Team -->
@@ -700,6 +707,47 @@
                     </div>
                 </div>
                 {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Help Modal -->
+    <div x-show="showHelp" x-cloak class="fixed inset-0 z-[100] flex items-center justify-center p-4" @click.self="showHelp = false">
+        <div class="absolute inset-0 bg-black/40 backdrop-blur-sm"></div>
+        <div class="relative bg-white rounded-2xl max-w-lg w-full max-h-[80vh] overflow-y-auto p-8 border border-slate-200 shadow-2xl">
+            <button @click="showHelp = false" class="absolute top-4 right-4 w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-400 hover:text-slate-600">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+            <h2 class="text-xl font-black text-slate-800 mb-4">Match Detail — Help</h2>
+            <div class="space-y-4 text-sm text-slate-600">
+                <div>
+                    <p class="font-bold text-slate-800">What is this page?</p>
+                    <p>A deep dive into one specific match. Everything the model knows about this game, broken down.</p>
+                </div>
+                <div>
+                    <p class="font-bold text-slate-800">Probability Bar (green/gray/blue)</p>
+                    <p>Shows who the model favours. The wider the green section, the more likely a home win. Blue = away win. Gray = draw.</p>
+                </div>
+                <div>
+                    <p class="font-bold text-slate-800">Sentiment Bar</p>
+                    <p>How Reddit and the news feel about each team. Green = positive buzz, red = negative.</p>
+                </div>
+                <div>
+                    <p class="font-bold text-slate-800">Our Model vs The Bookmakers</p>
+                    <p>The key section. Shows our probability side-by-side with the bookmaker's probability. If there's a gap (positive edge %), the bookmaker is underpricing that outcome — that's a value bet.</p>
+                </div>
+                <div>
+                    <p class="font-bold text-slate-800">Bet Calculator</p>
+                    <p>Enter any stake amount. See exactly how much you'd win for each outcome. Click an outcome and hit 'Add to Portfolio' to track it.</p>
+                </div>
+                <div>
+                    <p class="font-bold text-slate-800">Model Signals</p>
+                    <p>Shows what each of the 4 models (Poisson, Elo, XGBoost, Sentiment) thinks independently. If they agree = high confidence. If they disagree = be cautious.</p>
+                </div>
+                <div>
+                    <p class="font-bold text-slate-800">Scoreline Chart</p>
+                    <p>The most likely exact scores from the Poisson model. Green bars = home wins, yellow = draws, blue = away wins.</p>
+                </div>
             </div>
         </div>
     </div>

@@ -2,10 +2,17 @@
 {% block title %}{{ league_config.name }}{% endblock %}
 
 {% block content %}
-<div class="space-y-6">
+<div class="space-y-6" x-data="{ showHelp: false }">
     <div class="flex items-center justify-between">
         <div>
-            <h1 class="text-2xl font-black text-slate-800">{{ league_config.name }}</h1>
+            <div class="flex items-center space-x-2">
+                <h1 class="text-2xl font-black text-slate-800">{{ league_config.name }}</h1>
+                <button @click="showHelp = true" class="w-8 h-8 rounded-lg bg-slate-200 hover:bg-slate-300 flex items-center justify-center text-slate-500 hover:text-slate-700 transition" title="Help">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                </button>
+            </div>
             <p class="text-sm text-slate-500">{{ league_config.country }} — Standings & Team Ratings</p>
         </div>
     </div>
@@ -106,6 +113,35 @@
                     Import historical data to build ratings.
                 </div>
                 {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Help Modal -->
+    <div x-show="showHelp" x-cloak class="fixed inset-0 z-[100] flex items-center justify-center p-4" @click.self="showHelp = false">
+        <div class="absolute inset-0 bg-black/40 backdrop-blur-sm"></div>
+        <div class="relative bg-white rounded-2xl max-w-lg w-full max-h-[80vh] overflow-y-auto p-8 border border-slate-200 shadow-2xl">
+            <button @click="showHelp = false" class="absolute top-4 right-4 w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-400 hover:text-slate-600">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+            <h2 class="text-xl font-black text-slate-800 mb-4">League View — Help</h2>
+            <div class="space-y-4 text-sm text-slate-600">
+                <div>
+                    <p class="font-bold text-slate-800">What is this page?</p>
+                    <p>This shows the full Premier League standings table — the same one you'd see on the BBC or Sky Sports. Teams ranked by points, with wins, draws, losses, goals for/against, and goal difference.</p>
+                </div>
+                <div>
+                    <p class="font-bold text-slate-800">What's the Elo Ratings sidebar?</p>
+                    <p>Elo is our model's power ranking. Think of it like a FIFA rating for each team, but updated after every single match. A team rated 1700+ is elite, 1500 is average, below 1400 is struggling. It's different from the league table — a team can be 8th in the table but rated 5th by Elo if they've been unlucky.</p>
+                </div>
+                <div>
+                    <p class="font-bold text-slate-800">Attack Strength & Defence Weakness</p>
+                    <p>Numbers above 1.0 = better than league average. Below 1.0 = worse. An attack strength of 1.3 means the team scores 30% more goals than average. A defence weakness of 0.7 means they concede 30% fewer goals than average.</p>
+                </div>
+                <div>
+                    <p class="font-bold text-slate-800">The blue/red left borders</p>
+                    <p>Blue = Champions League places (top 4). Red = relegation zone (bottom 3).</p>
+                </div>
             </div>
         </div>
     </div>

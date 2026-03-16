@@ -4,7 +4,17 @@
 {% block content %}
 {% set bankroll_current = bankroll_start + summary.total_profit %}
 
-<div class="space-y-6" x-data="{ editingBankroll: false, newBankroll: {{ bankroll_start }} }">
+<div class="space-y-6" x-data="{ editingBankroll: false, newBankroll: {{ bankroll_start }}, showHelp: false }">
+    <!-- Page Title with Help -->
+    <div class="flex items-center space-x-2">
+        <h1 class="text-2xl font-black text-slate-800">Bet Portfolio</h1>
+        <button @click="showHelp = true" class="w-8 h-8 rounded-lg bg-slate-200 hover:bg-slate-300 flex items-center justify-center text-slate-500 hover:text-slate-700 transition" title="Help">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+        </button>
+    </div>
+
     <!-- Portfolio Value Hero Section — distinct blue/indigo container -->
     <div class="rounded-2xl overflow-hidden bg-gradient-to-br from-indigo-900/50 via-blue-900/30 to-dark-900 border border-indigo-700/30">
         <div class="px-8 py-7">
@@ -353,6 +363,46 @@
                 {% endfor %}
             </tbody>
         </table>
+    </div>
+
+    <!-- Help Modal -->
+    <div x-show="showHelp" x-cloak class="fixed inset-0 z-[100] flex items-center justify-center p-4" @click.self="showHelp = false">
+        <div class="absolute inset-0 bg-black/40 backdrop-blur-sm"></div>
+        <div class="relative bg-white rounded-2xl max-w-lg w-full max-h-[80vh] overflow-y-auto p-8 border border-slate-200 shadow-2xl">
+            <button @click="showHelp = false" class="absolute top-4 right-4 w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-400 hover:text-slate-600">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+            <h2 class="text-xl font-black text-slate-800 mb-4">Bet Portfolio — Help</h2>
+            <div class="space-y-4 text-sm text-slate-600">
+                <div>
+                    <p class="font-bold text-slate-800">What is this page?</p>
+                    <p>Your personal betting portfolio — think of it like a stock trading dashboard but for bets.</p>
+                </div>
+                <div>
+                    <p class="font-bold text-slate-800">Starting Bankroll</p>
+                    <p>How much money you've set aside for betting. Click 'Edit' to change it. If you don't set it, we auto-calculate from your total wagers.</p>
+                </div>
+                <div>
+                    <p class="font-bold text-slate-800">How to use it</p>
+                    <ol class="list-decimal list-inside space-y-1 mt-1">
+                        <li>Find value bets on the Command Center or match pages</li>
+                        <li>Use the Bet Calculator on any match page to enter your stake</li>
+                        <li>Click 'Add to Portfolio' to track the bet</li>
+                        <li>When the match is played, come here and click 'Won', 'Lost', or 'Void'</li>
+                        <li>Watch your P&L, win rate, and ROI build over time</li>
+                    </ol>
+                </div>
+                <div>
+                    <p class="font-bold text-slate-800">What the numbers mean</p>
+                    <ul class="list-disc list-inside space-y-1 mt-1">
+                        <li><span class="font-semibold">Win Rate:</span> % of settled bets you've won</li>
+                        <li><span class="font-semibold">ROI:</span> Return on investment — profit as % of total staked</li>
+                        <li><span class="font-semibold">Kelly:</span> The model's suggested stake size. We use quarter-Kelly (conservative)</li>
+                        <li><span class="font-semibold">Win Streak:</span> How many wins in a row you're currently on</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 

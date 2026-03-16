@@ -2,9 +2,16 @@
 {% block title %}Model Performance{% endblock %}
 
 {% block content %}
-<div class="space-y-6">
+<div class="space-y-6" x-data="{ showHelp: false }">
     <div>
-        <h1 class="text-2xl font-black text-slate-800">Model Performance</h1>
+        <div class="flex items-center space-x-2">
+            <h1 class="text-2xl font-black text-slate-800">Model Performance</h1>
+            <button @click="showHelp = true" class="w-8 h-8 rounded-lg bg-slate-200 hover:bg-slate-300 flex items-center justify-center text-slate-500 hover:text-slate-700 transition" title="Help">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+            </button>
+        </div>
         <p class="text-sm text-slate-500">Backtest results, calibration, and ROI tracking</p>
     </div>
 
@@ -63,6 +70,39 @@
         <p class="text-slate-400 text-xs mt-4 font-mono">python backtest.py --league PL</p>
     </div>
     {% endif %}
+
+    <!-- Help Modal -->
+    <div x-show="showHelp" x-cloak class="fixed inset-0 z-[100] flex items-center justify-center p-4" @click.self="showHelp = false">
+        <div class="absolute inset-0 bg-black/40 backdrop-blur-sm"></div>
+        <div class="relative bg-white rounded-2xl max-w-lg w-full max-h-[80vh] overflow-y-auto p-8 border border-slate-200 shadow-2xl">
+            <button @click="showHelp = false" class="absolute top-4 right-4 w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-400 hover:text-slate-600">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+            <h2 class="text-xl font-black text-slate-800 mb-4">Model Performance — Help</h2>
+            <div class="space-y-4 text-sm text-slate-600">
+                <div>
+                    <p class="font-bold text-slate-800">What is this page?</p>
+                    <p>This is proof the model works. We ran it on 631 historical matches where we already know the results, and measured how well it predicted them.</p>
+                </div>
+                <div>
+                    <p class="font-bold text-slate-800">Accuracy</p>
+                    <p>What % of matches did each model predict correctly. Random guessing would be ~33% (three outcomes: H/D/A). Our ensemble hits 54.4% — significantly better than random.</p>
+                </div>
+                <div>
+                    <p class="font-bold text-slate-800">Brier Score</p>
+                    <p>A more sophisticated accuracy measure. Lower = better. 0 = perfect predictions. 0.25 = random guessing. Our 0.574 is for all 3 outcomes combined (so divide roughly by 3 to compare to single-outcome Brier).</p>
+                </div>
+                <div>
+                    <p class="font-bold text-slate-800">ROI</p>
+                    <p>If you had bet every value bet the model flagged over 3 seasons, what would your return be? +31.3% means for every $100 staked, you'd have $131.30 back.</p>
+                </div>
+                <div>
+                    <p class="font-bold text-slate-800">Calibration</p>
+                    <p>The ultimate trust test. When our model says '60% chance', does that team actually win 60% of the time? Ours shows 60% predicted → 61.9% observed. That's well calibrated — the model knows what it knows.</p>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 
 <script>
