@@ -437,39 +437,155 @@
             </div>
         </div>
 
-        <!-- The Four Models -->
+        <!-- How Winnings Work -->
         <div class="mb-6">
-            <h3 class="text-sm font-semibold text-cyan-400 uppercase tracking-wider mb-2">The Four Models</h3>
+            <h3 class="text-sm font-semibold text-purple-400 uppercase tracking-wider mb-2">How Winnings Work</h3>
+            <div class="bg-dark-700/50 rounded-lg p-4 text-sm text-gray-300 space-y-2">
+                <p>Odds tell you what you'll get back if you win:</p>
+                <div class="bg-dark-600 rounded p-3 my-3 text-xs space-y-1">
+                    <p>Odds of <span class="text-white font-mono">1.85</span> = Bet $10, get back <span class="text-green-400 font-mono">$18.50</span> ($8.50 profit)</p>
+                    <p>Odds of <span class="text-white font-mono">3.00</span> = Bet $10, get back <span class="text-green-400 font-mono">$30.00</span> ($20.00 profit)</p>
+                    <p>Odds of <span class="text-white font-mono">6.80</span> = Bet $10, get back <span class="text-green-400 font-mono">$68.00</span> ($58.00 profit)</p>
+                </div>
+                <div class="bg-dark-600/80 rounded-lg p-3 mt-3 text-xs space-y-1 border-l-2 border-emerald-500">
+                    <p class="text-white font-semibold mb-1">Real example:</p>
+                    <p class="text-gray-300">Tottenham vs Nottingham Forest</p>
+                    <p class="text-gray-400 mt-1">Our model: Forest wins <span class="text-emerald-400">45%</span> | Bookmaker: Forest wins <span class="text-red-400">34%</span> (odds 2.96)</p>
+                    <p class="text-gray-400 mt-1">You're being overpaid. Over 100 bets at $10:</p>
+                    <p class="text-emerald-400 ml-2">Win ~45 x $19.60 profit = $882</p>
+                    <p class="text-red-400 ml-2">Lose ~55 x $10 lost = $550</p>
+                    <p class="text-white font-bold ml-2 mt-1">NET PROFIT: +$332 = +33% ROI</p>
+                    <p class="text-gray-500 mt-2">You WILL lose individual bets. The edge shows up over volume. <span class="text-white">You're the casino.</span> Backtest: 348 bets, <span class="text-emerald-400 font-bold">+31.3% ROI</span>.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- The Four Models — Detailed -->
+        <div class="mb-6">
+            <h3 class="text-sm font-semibold text-cyan-400 uppercase tracking-wider mb-2">The Four Models — How They Work</h3>
             <div class="bg-dark-700/50 rounded-lg p-4 text-sm text-gray-300 space-y-4">
                 <div>
                     <p class="text-white font-semibold">1. Poisson + Dixon-Coles (35% weight)</p>
-                    <p class="text-gray-400 text-xs mt-1">Statistical goal-scoring model using attack/defence strengths and scoreline probability matrices.</p>
+                    <p class="text-gray-400 text-xs mt-1">Calculates each team's <span class="text-white">Attack Strength</span> and <span class="text-white">Defence Weakness</span> vs league average. Produces expected goals, then uses Poisson distribution for a 7x7 scoreline matrix. Dixon-Coles corrects for low-scoring games (0-0, 1-0, 1-1). Now includes <span class="text-emerald-400">second-half strength multiplier</span> from goal timing analysis.</p>
                 </div>
                 <div>
                     <p class="text-white font-semibold">2. XGBoost Machine Learning (30% weight)</p>
-                    <p class="text-gray-400 text-xs mt-1">Gradient-boosted trees trained on 20 features including Elo, form, H2H, referee stats, sentiment.</p>
+                    <p class="text-gray-400 text-xs mt-1">Gradient-boosted trees trained on <span class="text-white">28 features</span>: Elo, form, H2H record, attack/defence strength, days rest, <span class="text-emerald-400">referee tendencies</span>, <span class="text-emerald-400">fixture congestion</span>, <span class="text-emerald-400">market movement</span>, <span class="text-emerald-400">Pinnacle implied probability</span>, sentiment, month, promoted team status, streak length.</p>
                 </div>
                 <div>
                     <p class="text-white font-semibold">3. Elo Rating System (25% weight)</p>
-                    <p class="text-gray-400 text-xs mt-1">Chess-style power ratings with home advantage, goal difference multiplier, and season decay.</p>
+                    <p class="text-gray-400 text-xs mt-1">Chess-style power ratings with home advantage (+50), goal difference multiplier, season decay. <span class="text-emerald-400">Detects promoted teams</span> and gives them +75 Elo boost for first 6 matches. Tracks home/away Elo separately, plus form and streaks.</p>
                 </div>
                 <div>
                     <p class="text-white font-semibold">4. Sentiment Analysis (10% weight)</p>
-                    <p class="text-gray-400 text-xs mt-1">Reddit + news sentiment scoring. Weak signal used as a tiebreaker.</p>
+                    <p class="text-gray-400 text-xs mt-1">Reddit + news headlines scored by VADER. Tracks volume spikes and flags keywords (injury, sacked, ban). Weak signal but catches things stats miss.</p>
                 </div>
+            </div>
+        </div>
+
+        <!-- How the Ensemble Combines Them -->
+        <div class="mb-6">
+            <h3 class="text-sm font-semibold text-pink-400 uppercase tracking-wider mb-2">How the Ensemble Works</h3>
+            <div class="bg-dark-700/50 rounded-lg p-4 text-sm text-gray-300 space-y-2">
+                <div class="bg-dark-600 rounded p-3 my-2 text-xs font-mono text-center">
+                    Final = (Poisson × 0.35) + (XGBoost × 0.30) + (Elo × 0.25) + (Sentiment × 0.10)
+                </div>
+                <p class="text-xs text-gray-500">Weights auto-optimize weekly based on historical Brier scores. If a model fails, remaining weights re-normalise.</p>
+                <p class="text-xs text-gray-500"><span class="text-white">Kelly Criterion</span> sizes bets: f = (bp - q) / b. We use quarter-Kelly (conservative).</p>
+            </div>
+        </div>
+
+        <!-- All Prediction Signals -->
+        <div class="mb-6">
+            <h3 class="text-sm font-semibold text-yellow-400 uppercase tracking-wider mb-2">All Factors in Every Prediction</h3>
+            <div class="bg-dark-700/50 rounded-lg p-4 text-sm text-gray-300">
+                <div class="grid grid-cols-2 gap-2 text-xs">
+                    <div class="bg-dark-600 rounded p-2">
+                        <p class="text-white font-medium">Goals scored/conceded</p>
+                        <p class="text-gray-500">Home & away splits, time-decay weighted</p>
+                    </div>
+                    <div class="bg-dark-600 rounded p-2">
+                        <p class="text-white font-medium">Team Elo power rating</p>
+                        <p class="text-gray-500">Updated after every match</p>
+                    </div>
+                    <div class="bg-dark-600 rounded p-2">
+                        <p class="text-white font-medium">Recent form (last 5/10)</p>
+                        <p class="text-gray-500">Points, goals, streaks</p>
+                    </div>
+                    <div class="bg-dark-600 rounded p-2">
+                        <p class="text-white font-medium">Head-to-head record</p>
+                        <p class="text-gray-500">#1 most important XGBoost feature</p>
+                    </div>
+                    <div class="bg-dark-600 rounded p-2 border-l-2 border-emerald-500">
+                        <p class="text-white font-medium">Referee tendencies</p>
+                        <p class="text-gray-500">Avg goals, cards, home win %</p>
+                    </div>
+                    <div class="bg-dark-600 rounded p-2 border-l-2 border-emerald-500">
+                        <p class="text-white font-medium">Fixture congestion</p>
+                        <p class="text-gray-500">Games in last 14/30 days</p>
+                    </div>
+                    <div class="bg-dark-600 rounded p-2 border-l-2 border-emerald-500">
+                        <p class="text-white font-medium">Market movement</p>
+                        <p class="text-gray-500">Odds shortening/drifting direction</p>
+                    </div>
+                    <div class="bg-dark-600 rounded p-2 border-l-2 border-emerald-500">
+                        <p class="text-white font-medium">Half-time patterns</p>
+                        <p class="text-gray-500">1st vs 2nd half goals, comeback rate</p>
+                    </div>
+                    <div class="bg-dark-600 rounded p-2 border-l-2 border-emerald-500">
+                        <p class="text-white font-medium">Promoted team detection</p>
+                        <p class="text-gray-500">+75 Elo boost for first 6 matches</p>
+                    </div>
+                    <div class="bg-dark-600 rounded p-2 border-l-2 border-emerald-500">
+                        <p class="text-white font-medium">CLV tracking</p>
+                        <p class="text-gray-500">Beating Pinnacle closing line = genuine edge</p>
+                    </div>
+                    <div class="bg-dark-600 rounded p-2">
+                        <p class="text-white font-medium">Days rest</p>
+                        <p class="text-gray-500">Fatigue from recent matches</p>
+                    </div>
+                    <div class="bg-dark-600 rounded p-2">
+                        <p class="text-white font-medium">Home/away advantage</p>
+                        <p class="text-gray-500">Separate ratings for each</p>
+                    </div>
+                    <div class="bg-dark-600 rounded p-2">
+                        <p class="text-white font-medium">Season timing</p>
+                        <p class="text-gray-500">December congestion, end-of-season</p>
+                    </div>
+                    <div class="bg-dark-600 rounded p-2">
+                        <p class="text-white font-medium">Sentiment (Reddit + News)</p>
+                        <p class="text-gray-500">Fan mood, injury flags, volume spikes</p>
+                    </div>
+                </div>
+                <p class="text-[10px] text-gray-600 mt-2">Green-bordered items are Tier 1+2 enhancements added to improve accuracy.</p>
+            </div>
+        </div>
+
+        <!-- Dashboard Pages -->
+        <div class="mb-6">
+            <h3 class="text-sm font-semibold text-yellow-400 uppercase tracking-wider mb-2">Dashboard Pages</h3>
+            <div class="bg-dark-700/50 rounded-lg p-4 text-sm text-gray-300 space-y-2">
+                <p><span class="text-white font-semibold">Command Center</span> — All leagues at a glance. Fixtures, predictions, value bets, standings.</p>
+                <p><span class="text-white font-semibold">Match Detail</span> — Click any match. 4 models, prediction signals, scoreline chart, bet calculator, odds comparison.</p>
+                <p><span class="text-white font-semibold">Portfolio</span> — Track your actual bets. Win rate, P&L, ROI, bankroll tracking.</p>
+                <p><span class="text-white font-semibold">Model Tracker</span> — Automated: every prediction vs actual result. Shows "what if we bet $100 on every pick?"</p>
+                <p><span class="text-white font-semibold">Sentiment</span> — Reddit + News mood per team across all leagues.</p>
+                <p><span class="text-white font-semibold">Performance</span> — Backtest results. Accuracy, Brier score, ROI, calibration per league.</p>
+                <p><span class="text-white font-semibold">Settings</span> — User management. Add/edit/delete users and passwords.</p>
             </div>
         </div>
 
         <!-- Weekly Workflow -->
         <div class="mb-2">
-            <h3 class="text-sm font-semibold text-orange-400 uppercase tracking-wider mb-2">Your Weekly Workflow</h3>
+            <h3 class="text-sm font-semibold text-orange-400 uppercase tracking-wider mb-2">Your Match Day Workflow</h3>
             <div class="bg-dark-700/50 rounded-lg p-4 text-sm text-gray-300 space-y-2">
-                <p><span class="text-white font-mono">1.</span> Before each gameweek, hit <span class="text-blue-400">"Refresh Everything"</span></p>
-                <p><span class="text-white font-mono">2.</span> Check the <span class="text-green-400">Value Bets</span> panel -- these are your best opportunities</p>
-                <p><span class="text-white font-mono">3.</span> Click into matches that interest you for the deep dive</p>
-                <p><span class="text-white font-mono">4.</span> Check if models agree (high confidence) or disagree (be cautious)</p>
-                <p><span class="text-white font-mono">5.</span> The Kelly % tells you how much to bet relative to your bankroll</p>
-                <p class="text-gray-500 text-xs mt-3">Remember: you WILL lose individual bets. A 40% win rate at good odds is profitable long-term. Trust the process.</p>
+                <p><span class="text-white font-mono">1.</span> Morning — hit <span class="text-blue-400">"Refresh Everything"</span> (gets overnight news + fresh odds)</p>
+                <p><span class="text-white font-mono">2.</span> Check <span class="text-green-400">Value Bets</span> across all leagues</p>
+                <p><span class="text-white font-mono">3.</span> Click into matches for the deep dive + prediction signals</p>
+                <p><span class="text-white font-mono">4.</span> Pre-match — hit Refresh again for latest odds movement</p>
+                <p><span class="text-white font-mono">5.</span> Place bets via the Bet Calculator, track in Portfolio</p>
+                <p><span class="text-white font-mono">6.</span> After matches — Refresh to get results, check Model Tracker</p>
+                <p class="text-gray-500 text-xs mt-3">You can refresh 2x/day across all 3 leagues. The model finds VALUE, not winners. Trust the process over volume.</p>
             </div>
         </div>
     </div>
