@@ -152,6 +152,33 @@ def dashboard():
     # Match count
     match_count = football_data_uk.get_match_count(league)
 
+    # Data freshness status
+    data_status = {}
+    try:
+        for source in ["football_data_org", "football_data_uk", "odds_api", "reddit", "newsapi"]:
+            last_call = db.fetch_one(
+                "SELECT called_at, response_code FROM api_calls WHERE api_name = ? AND cached = 0 ORDER BY called_at DESC LIMIT 1",
+                [source]
+            )
+            data_status[source] = {
+                "last_updated": last_call["called_at"][:16].replace("T", " ") if last_call else "Never",
+                "status": "ok" if last_call and last_call.get("response_code") == 200 else "unknown",
+            }
+        # Add counts
+        data_status["summary"] = {
+            "matches": match_count,
+            "fixtures": len(fixtures),
+            "predictions": db.fetch_one("SELECT COUNT(*) as c FROM predictions WHERE league = ?", [league])["c"],
+            "odds_rows": db.fetch_one("SELECT COUNT(*) as c FROM odds WHERE league = ?", [league])["c"],
+            "value_bets": len(value_bets),
+            "sentiment_teams": db.fetch_one("SELECT COUNT(DISTINCT team) as c FROM sentiment WHERE league = ?", [league])["c"],
+            "team_ratings": db.fetch_one("SELECT COUNT(*) as c FROM team_ratings WHERE league = ?", [league])["c"],
+            "referee_profiles": db.fetch_one("SELECT COUNT(*) as c FROM referee_stats WHERE league = ?", [league])["c"],
+            "h2h_records": db.fetch_one("SELECT COUNT(*) as c FROM head_to_head WHERE league = ?", [league])["c"],
+        }
+    except Exception:
+        data_status = {}
+
     return render_template("dashboard.html",
         league=league,
         league_config=league_config,
@@ -162,6 +189,7 @@ def dashboard():
         standings=standings,
         api_usage=api_usage,
         match_count=match_count,
+        data_status=data_status,
         now=datetime.utcnow(),
     )
 

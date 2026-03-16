@@ -277,6 +277,58 @@
                 </div>
             </div>
 
+            <!-- Data Status -->
+            {% if data_status %}
+            <div class="glass rounded-xl overflow-hidden">
+                <div class="px-5 py-3 border-b border-slate-200 bg-slate-50">
+                    <h3 class="text-sm font-semibold text-slate-500 uppercase tracking-wider">Data Status</h3>
+                    <p class="text-[10px] text-slate-400">Last refresh timestamps</p>
+                </div>
+                <div class="px-5 py-3 space-y-2">
+                    {% set source_names = {"football_data_org": "Fixtures & Standings", "football_data_uk": "Historical CSVs", "odds_api": "Bookmaker Odds", "reddit": "Reddit Sentiment", "newsapi": "News Sentiment"} %}
+                    {% for source, info in data_status.items() if source != 'summary' %}
+                    <div class="flex items-center justify-between text-xs">
+                        <div class="flex items-center space-x-2">
+                            <span class="w-2 h-2 rounded-full {% if info.status == 'ok' %}bg-green-500{% else %}bg-slate-300{% endif %}"></span>
+                            <span class="text-slate-600">{{ source_names[source] if source in source_names else source }}</span>
+                        </div>
+                        <span class="font-mono text-slate-400 text-[10px]">{{ info.last_updated }}</span>
+                    </div>
+                    {% endfor %}
+                    {% if data_status.summary %}
+                    <div class="border-t border-slate-100 pt-2 mt-2">
+                        <div class="grid grid-cols-3 gap-2 text-[10px]">
+                            <div class="text-center">
+                                <p class="font-mono font-extrabold text-slate-700">{{ data_status.summary.matches }}</p>
+                                <p class="text-slate-400">Matches</p>
+                            </div>
+                            <div class="text-center">
+                                <p class="font-mono font-extrabold text-slate-700">{{ data_status.summary.odds_rows }}</p>
+                                <p class="text-slate-400">Odds</p>
+                            </div>
+                            <div class="text-center">
+                                <p class="font-mono font-extrabold text-slate-700">{{ data_status.summary.sentiment_teams }}</p>
+                                <p class="text-slate-400">Sentiment</p>
+                            </div>
+                            <div class="text-center">
+                                <p class="font-mono font-extrabold text-slate-700">{{ data_status.summary.team_ratings }}</p>
+                                <p class="text-slate-400">Ratings</p>
+                            </div>
+                            <div class="text-center">
+                                <p class="font-mono font-extrabold text-slate-700">{{ data_status.summary.referee_profiles }}</p>
+                                <p class="text-slate-400">Referees</p>
+                            </div>
+                            <div class="text-center">
+                                <p class="font-mono font-extrabold text-slate-700">{{ data_status.summary.h2h_records }}</p>
+                                <p class="text-slate-400">H2H</p>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+
             <!-- API Usage -->
             <div class="glass rounded-xl p-5">
                 <h3 class="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-3">API Usage</h3>
