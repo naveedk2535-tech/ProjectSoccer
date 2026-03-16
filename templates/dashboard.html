@@ -91,9 +91,9 @@
                    class="match-row block px-6 py-4 transition">
                     <div class="flex items-center justify-between">
                         <!-- Date -->
-                        <div class="w-20 text-center">
-                            <p class="text-xs text-slate-500">{{ f.match_date[:10] if f.match_date else '—' }}</p>
-                            <p class="text-xs text-slate-400 font-mono">{{ f.match_date[11:16] if f.match_date and f.match_date|length > 11 else '' }}</p>
+                        <div class="w-24 text-center">
+                            <p class="text-xs text-slate-500 local-date" data-utc="{{ f.match_date if f.match_date else '' }}">{{ f.match_date[:10] if f.match_date else '—' }}</p>
+                            <p class="text-xs text-slate-400 font-mono local-time-short" data-utc="{{ f.match_date if f.match_date else '' }}">{{ f.match_date[11:16] if f.match_date and f.match_date|length > 11 else '' }}</p>
                         </div>
 
                         <!-- Home Team -->
@@ -620,9 +620,29 @@ document.addEventListener('DOMContentLoaded', function() {
         const utc = el.dataset.utc;
         if (utc && utc !== 'Never') {
             try {
-                const d = new Date(utc.replace(' ', 'T') + 'Z');
+                const d = new Date(utc.replace(' ', 'T') + (utc.includes('Z') ? '' : 'Z'));
                 const opts = { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' };
                 el.textContent = d.toLocaleString(undefined, opts);
+            } catch(e) {}
+        }
+    });
+    // Convert fixture dates
+    document.querySelectorAll('.local-date').forEach(el => {
+        const utc = el.dataset.utc;
+        if (utc) {
+            try {
+                const d = new Date(utc.includes('Z') ? utc : utc + 'Z');
+                el.textContent = d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', weekday: 'short' });
+            } catch(e) {}
+        }
+    });
+    // Convert fixture times
+    document.querySelectorAll('.local-time-short').forEach(el => {
+        const utc = el.dataset.utc;
+        if (utc) {
+            try {
+                const d = new Date(utc.includes('Z') ? utc : utc + 'Z');
+                el.textContent = d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
             } catch(e) {}
         }
     });
