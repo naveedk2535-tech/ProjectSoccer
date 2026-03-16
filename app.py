@@ -1144,9 +1144,30 @@ def api_refresh_data():
                 logger.error("Odds fetch failed for %s: %s", code, e)
         results["odds_events"] = total_odds
 
-    # Skip prediction regeneration during web request — too slow for free tier
-    # Predictions are pre-computed and cached in the database
-    results["note"] = "Data fetched. Predictions use cached values."
+    if action in ("all", "sentiment"):
+        try:
+            from data import reddit_client, news_client
+            reddit_count = 0
+            news_count = 0
+            for code in enabled_leagues:
+                try:
+                    r = reddit_client.fetch_all_teams(code)
+                    reddit_count += len(r) if r else 0
+                except Exception as e:
+                    logger.error("Reddit fetch failed for %s: %s", code, e)
+                try:
+                    n = news_client.fetch_all_teams(code)
+                    news_count += len(n) if n else 0
+                except Exception as e:
+                    logger.error("News fetch failed for %s: %s", code, e)
+            results["reddit_teams"] = reddit_count
+            results["news_teams"] = news_count
+        except Exception as e:
+            logger.error("Sentiment refresh failed: %s", e)
+
+    # Note about CSV limitation on free tier
+    if action in ("all", "csv") and results.get("csv_matches_imported", 0) == 0:
+        results["csv_note"] = "CSVs blocked on free PythonAnywhere (proxy restriction). Data is pre-loaded."
 
     # Track what was rate-limited
     from data.rate_limiter import get_usage_summary
