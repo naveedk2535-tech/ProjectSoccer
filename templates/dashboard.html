@@ -282,17 +282,30 @@
             <div class="glass rounded-xl overflow-hidden">
                 <div class="px-5 py-3 border-b border-slate-200 bg-slate-50">
                     <h3 class="text-sm font-semibold text-slate-500 uppercase tracking-wider">Data Status</h3>
-                    <p class="text-[10px] text-slate-400">Last refresh timestamps</p>
+                    <p class="text-[10px] text-slate-400">Last refresh times (shown in your local time)</p>
                 </div>
                 <div class="px-5 py-3 space-y-2">
-                    {% set source_names = {"football_data_org": "Fixtures & Standings", "football_data_uk": "Historical CSVs", "odds_api": "Bookmaker Odds", "reddit": "Reddit Sentiment", "newsapi": "News Sentiment"} %}
+                    {% set source_info = {
+                        "football_data_org": {"name": "Fixtures & Standings", "refresh": "2x/day"},
+                        "football_data_uk": {"name": "Historical Results", "refresh": "weekly (after matchday)"},
+                        "odds_api": {"name": "Bookmaker Odds", "refresh": "match days only"},
+                        "reddit": {"name": "Reddit Sentiment", "refresh": "1x/day"},
+                        "newsapi": {"name": "News Sentiment", "refresh": "1x/day"}
+                    } %}
                     {% for source, info in data_status.items() if source != 'summary' %}
                     <div class="flex items-center justify-between text-xs">
                         <div class="flex items-center space-x-2">
-                            <span class="w-2 h-2 rounded-full {% if info.status == 'ok' %}bg-green-500{% else %}bg-slate-300{% endif %}"></span>
-                            <span class="text-slate-600">{{ source_names[source] if source in source_names else source }}</span>
+                            <span class="w-2 h-2 rounded-full {% if info.status == 'ok' %}bg-green-500{% elif info.last_updated == 'Never' %}bg-slate-300{% else %}bg-yellow-500{% endif %}"></span>
+                            <div>
+                                <span class="text-slate-600">{{ source_info[source].name if source in source_info else source }}</span>
+                                <span class="text-[9px] text-slate-400 ml-1">({{ source_info[source].refresh if source in source_info else '' }})</span>
+                            </div>
                         </div>
+                        {% if info.last_updated != 'Never' %}
+                        <span class="font-mono text-slate-400 text-[10px] local-time" data-utc="{{ info.last_updated }}">{{ info.last_updated }} UTC</span>
+                        {% else %}
                         <span class="font-mono text-slate-400 text-[10px]">{{ info.last_updated }}</span>
+                        {% endif %}
                     </div>
                     {% endfor %}
                     {% if data_status.summary %}
@@ -601,11 +614,24 @@
 </div>
 
 <script>
+// Convert UTC timestamps to local time
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.local-time').forEach(el => {
+        const utc = el.dataset.utc;
+        if (utc && utc !== 'Never') {
+            try {
+                const d = new Date(utc.replace(' ', 'T') + 'Z');
+                const opts = { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' };
+                el.textContent = d.toLocaleString(undefined, opts);
+            } catch(e) {}
+        }
+    });
+});
+
 async function refreshData(action) {
     const status = document.getElementById('refresh-status');
     status.classList.remove('hidden');
-    status.textContent = `Refreshing ${action}...`;
-    status.className = 'mt-3 text-xs text-yellow-400 font-mono';
+    status.innerHTML = `<span class="text-amber-600">Refreshing ${action}...</span><br><span class="text-slate-400 text-[10px]">Some sources may be rate-limited (1x/day). They'll refresh on your next daily window.</span>`;
 
     try {
         const res = await fetch('/api/refresh-data', {
@@ -614,12 +640,16 @@ async function refreshData(action) {
             body: JSON.stringify({ action: action, league: '{{ league }}' })
         });
         const data = await res.json();
-        status.textContent = `Done: ${JSON.stringify(data.results)}`;
-        status.className = 'mt-3 text-xs text-green-400 font-mono';
+        let details = [];
+        if (data.results) {
+            for (const [key, val] of Object.entries(data.results)) {
+                details.push(`${key}: ${val}`);
+            }
+        }
+        status.innerHTML = `<span class="text-green-700 font-semibold">Refreshed!</span> ${details.join(' | ')}`;
         setTimeout(() => location.reload(), 2000);
     } catch(e) {
-        status.textContent = `Error: ${e.message}`;
-        status.className = 'mt-3 text-xs text-red-400 font-mono';
+        status.innerHTML = `<span class="text-red-600">Error: ${e.message}</span>`;
     }
 }
 </script>
