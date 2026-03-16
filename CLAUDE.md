@@ -25,7 +25,7 @@ A full end-to-end soccer prediction engine with a modern dark-themed dashboard. 
 | The Odds API | 500 req/month | ~48/month | 4 hours on match days |
 | Reddit (PRAW) | 100 req/min | 1 bulk pull/day | 24 hours |
 | NewsAPI | 100 req/day | 1 call/day | 24 hours |
-| football-data.co.uk | Unlimited | 1x/3 days | 3 days |
+| football-data.co.uk | Unlimited | 1x/2 days | 2 days |
 
 ## Data Refresh Schedule
 - **Historical CSVs:** Download once at setup, refresh weekly after matchday

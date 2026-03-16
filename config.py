@@ -22,7 +22,7 @@ RATE_LIMITS = {
     "odds_api":          {"calls": 3,  "period_seconds": 86400},    # 3/day (match days)
     "reddit":            {"calls": 1,  "period_seconds": 86400},    # 1 bulk pull/day
     "newsapi":           {"calls": 1,  "period_seconds": 86400},    # 1/day
-    "football_data_uk":  {"calls": 1,  "period_seconds": 259200},   # 1 per 3 days
+    "football_data_uk":  {"calls": 1,  "period_seconds": 172800},   # 1 per 2 days
 }
 
 # --- Cache TTLs (seconds) ---
@@ -30,7 +30,7 @@ CACHE_TTL = {
     "fixtures": 43200,      # 12 hours
     "odds": 14400,          # 4 hours
     "sentiment": 86400,     # 24 hours
-    "historical_csv": 259200,  # 3 days
+    "historical_csv": 172800,  # 2 days
     "standings": 43200,     # 12 hours
 }
 
