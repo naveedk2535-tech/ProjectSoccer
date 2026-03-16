@@ -83,42 +83,95 @@
             </div>
             <div class="divide-y divide-gray-800/50">
                 {% for bet in pending %}
-                <div class="px-6 py-4" x-data="{ settling: false }">
-                    <div class="flex items-center justify-between">
+                <div class="px-6 py-4" x-data="{ editing: false, stake: {{ bet.stake }}, odds: {{ bet.odds }}, bookmaker: '{{ bet.bookmaker or '' }}', notes: '{{ bet.notes or '' }}' }">
+                    <!-- Normal View -->
+                    <div x-show="!editing">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <a href="/match/{{ bet.league }}/{{ bet.home_team|replace(' ', '_') }}/{{ bet.away_team|replace(' ', '_') }}"
+                                   class="text-sm text-gray-300 hover:text-white transition">
+                                    {{ bet.home_team }} v {{ bet.away_team }}
+                                </a>
+                                <p class="text-xs text-gray-500 mt-0.5">{{ bet.match_date }} | {{ bet.bet_type|replace('_',' ')|title }}</p>
+                            </div>
+                            <div class="text-right">
+                                <p class="text-white font-mono font-bold">${{ bet.stake }} @ {{ bet.odds }}</p>
+                                <p class="text-xs text-emerald-400 font-mono">Pays ${{ (bet.stake * bet.odds)|round(2) }}</p>
+                            </div>
+                        </div>
+                        <div class="mt-3 flex items-center space-x-2">
+                            <button onclick="settleBet({{ bet.id }}, 'won')"
+                                    class="px-3 py-1.5 rounded bg-emerald-600/20 hover:bg-emerald-600/40 text-emerald-400 text-xs font-medium transition">
+                                Won (+${{ ((bet.odds - 1) * bet.stake)|round(2) }})
+                            </button>
+                            <button onclick="settleBet({{ bet.id }}, 'lost')"
+                                    class="px-3 py-1.5 rounded bg-red-600/20 hover:bg-red-600/40 text-red-400 text-xs font-medium transition">
+                                Lost (-${{ bet.stake }})
+                            </button>
+                            <button onclick="settleBet({{ bet.id }}, 'void')"
+                                    class="px-3 py-1.5 rounded bg-gray-600/20 hover:bg-gray-600/40 text-gray-400 text-xs font-medium transition">
+                                Void
+                            </button>
+                            <div class="ml-auto flex items-center space-x-1">
+                                <button @click="editing = true"
+                                        class="px-2 py-1.5 rounded hover:bg-blue-900/30 text-gray-600 hover:text-blue-400 text-xs transition">
+                                    Edit
+                                </button>
+                                <button onclick="deleteBet({{ bet.id }})"
+                                        class="px-2 py-1.5 rounded hover:bg-red-900/30 text-gray-600 hover:text-red-400 text-xs transition">
+                                    Delete
+                                </button>
+                            </div>
+                        </div>
+                        {% if bet.bookmaker or bet.notes %}
+                        <p class="text-[10px] text-gray-600 mt-2">
+                            {% if bet.bookmaker %}{{ bet.bookmaker }}{% endif %}
+                            {% if bet.model_probability %} | Model: {{ (bet.model_probability * 100)|round(1) }}%{% endif %}
+                            {% if bet.edge_percent %} | Edge: {{ bet.edge_percent }}%{% endif %}
+                            {% if bet.notes %} | {{ bet.notes }}{% endif %}
+                        </p>
+                        {% endif %}
+                    </div>
+
+                    <!-- Edit View -->
+                    <div x-show="editing" x-cloak class="space-y-3">
+                        <p class="text-sm text-white font-medium">{{ bet.home_team }} v {{ bet.away_team }} — {{ bet.bet_type|replace('_',' ')|title }}</p>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="text-[10px] text-gray-500 uppercase">Stake ($)</label>
+                                <input type="number" x-model="stake" step="0.01"
+                                       class="w-full mt-1 px-3 py-2 rounded-lg bg-dark-900 border border-gray-700 text-white font-mono text-sm focus:border-emerald-500 focus:outline-none">
+                            </div>
+                            <div>
+                                <label class="text-[10px] text-gray-500 uppercase">Odds</label>
+                                <input type="number" x-model="odds" step="0.01"
+                                       class="w-full mt-1 px-3 py-2 rounded-lg bg-dark-900 border border-gray-700 text-white font-mono text-sm focus:border-emerald-500 focus:outline-none">
+                            </div>
+                        </div>
                         <div>
-                            <a href="/match/{{ bet.league }}/{{ bet.home_team|replace(' ', '_') }}/{{ bet.away_team|replace(' ', '_') }}"
-                               class="text-sm text-gray-300 hover:text-white transition">
-                                {{ bet.home_team }} v {{ bet.away_team }}
-                            </a>
-                            <p class="text-xs text-gray-500 mt-0.5">{{ bet.match_date }} | {{ bet.bet_type|replace('_',' ')|title }}</p>
+                            <label class="text-[10px] text-gray-500 uppercase">Bookmaker</label>
+                            <input type="text" x-model="bookmaker"
+                                   class="w-full mt-1 px-3 py-2 rounded-lg bg-dark-900 border border-gray-700 text-white text-sm focus:border-emerald-500 focus:outline-none">
                         </div>
-                        <div class="text-right">
-                            <p class="text-white font-mono font-bold">${{ bet.stake }} @ {{ bet.odds }}</p>
-                            <p class="text-xs text-green-400 font-mono">Pays ${{ (bet.stake * bet.odds)|round(2) }}</p>
+                        <div>
+                            <label class="text-[10px] text-gray-500 uppercase">Notes</label>
+                            <input type="text" x-model="notes"
+                                   class="w-full mt-1 px-3 py-2 rounded-lg bg-dark-900 border border-gray-700 text-white text-sm focus:border-emerald-500 focus:outline-none">
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <button @click="editBet({{ bet.id }}, stake, odds, bookmaker, notes); editing = false"
+                                    class="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-medium transition">
+                                Save Changes
+                            </button>
+                            <button @click="editing = false"
+                                    class="px-4 py-2 rounded-lg bg-dark-600 hover:bg-dark-500 text-gray-400 text-xs transition">
+                                Cancel
+                            </button>
+                            <p class="text-xs text-gray-600 ml-auto">
+                                Pays: $<span x-text="(stake * odds).toFixed(2)" class="text-emerald-400 font-mono"></span>
+                            </p>
                         </div>
                     </div>
-                    <!-- Settle buttons -->
-                    <div class="mt-3 flex items-center space-x-2">
-                        <button onclick="settleBet({{ bet.id }}, 'won')"
-                                class="px-3 py-1.5 rounded bg-green-600/20 hover:bg-green-600/40 text-green-400 text-xs font-medium transition">
-                            Won (+${{ ((bet.odds - 1) * bet.stake)|round(2) }})
-                        </button>
-                        <button onclick="settleBet({{ bet.id }}, 'lost')"
-                                class="px-3 py-1.5 rounded bg-red-600/20 hover:bg-red-600/40 text-red-400 text-xs font-medium transition">
-                            Lost (-${{ bet.stake }})
-                        </button>
-                        <button onclick="settleBet({{ bet.id }}, 'void')"
-                                class="px-3 py-1.5 rounded bg-gray-600/20 hover:bg-gray-600/40 text-gray-400 text-xs font-medium transition">
-                            Void
-                        </button>
-                        <button onclick="deleteBet({{ bet.id }})"
-                                class="ml-auto px-2 py-1.5 rounded hover:bg-red-900/30 text-gray-600 hover:text-red-400 text-xs transition">
-                            Delete
-                        </button>
-                    </div>
-                    {% if bet.bookmaker %}
-                    <p class="text-[10px] text-gray-600 mt-2">{{ bet.bookmaker }} | Model: {{ (bet.model_probability * 100)|round(1) if bet.model_probability else '—' }}% | Edge: {{ bet.edge_percent if bet.edge_percent else '—' }}%</p>
-                    {% endif %}
                 </div>
                 {% else %}
                 <div class="px-6 py-12 text-center text-gray-600">
@@ -239,6 +292,16 @@ async function settleBet(betId, status) {
     });
     if (res.ok) location.reload();
     else alert('Error settling bet');
+}
+
+async function editBet(betId, stake, odds, bookmaker, notes) {
+    const res = await fetch(`/api/bets/${betId}`, {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ stake: parseFloat(stake), odds: parseFloat(odds), bookmaker, notes })
+    });
+    if (res.ok) location.reload();
+    else alert('Error updating bet');
 }
 
 async function deleteBet(betId) {

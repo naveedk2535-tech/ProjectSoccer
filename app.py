@@ -6,7 +6,8 @@ import logging
 import json
 from datetime import datetime
 
-from flask import Flask, render_template, jsonify, request
+from functools import wraps
+from flask import Flask, render_template, jsonify, request, session, redirect, url_for
 
 import config
 from database import db
@@ -25,6 +26,20 @@ app = Flask(__name__)
 app.secret_key = config.FLASK_SECRET_KEY
 
 
+USERS = {
+    "admin": "!admin123!",
+}
+
+
+def login_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if not session.get("logged_in"):
+            return redirect(url_for("login"))
+        return f(*args, **kwargs)
+    return decorated
+
+
 @app.before_request
 def ensure_db():
     """Initialize database on first request."""
@@ -33,9 +48,30 @@ def ensure_db():
         app._db_initialized = True
 
 
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    error = None
+    if request.method == "POST":
+        username = request.form.get("username", "")
+        password = request.form.get("password", "")
+        if username in USERS and USERS[username] == password:
+            session["logged_in"] = True
+            session["username"] = username
+            return redirect(url_for("dashboard"))
+        error = "Invalid credentials"
+    return render_template("login.html", error=error)
+
+
+@app.route("/logout")
+def logout():
+    session.clear()
+    return redirect(url_for("login"))
+
+
 # --- Dashboard Routes ---
 
 @app.route("/")
+@login_required
 def dashboard():
     """Main command center dashboard."""
     league = request.args.get("league", "PL")
@@ -97,6 +133,7 @@ def dashboard():
 
 
 @app.route("/match/<league>/<home_team>/<away_team>")
+@login_required
 def match_detail(league, home_team, away_team):
     """Detailed match prediction view."""
     home_team = home_team.replace("_", " ")
@@ -219,6 +256,7 @@ def match_detail(league, home_team, away_team):
 
 
 @app.route("/league/<league>")
+@login_required
 def league_view(league):
     """League overview with standings and team ratings."""
     league_config = config.LEAGUES.get(league, config.LEAGUES["PL"])
@@ -241,6 +279,7 @@ def league_view(league):
 
 
 @app.route("/sentiment")
+@login_required
 def sentiment_view():
     """Sentiment tracker page."""
     league = request.args.get("league", "PL")
@@ -267,6 +306,7 @@ def sentiment_view():
 
 
 @app.route("/performance")
+@login_required
 def performance_view():
     """Model backtest and performance page."""
     league = request.args.get("league", "PL")
@@ -286,6 +326,7 @@ def performance_view():
 
 
 @app.route("/portfolio")
+@login_required
 def portfolio_view():
     """Bet tracking portfolio — like a stock portfolio."""
     league = request.args.get("league", "PL")
@@ -352,6 +393,7 @@ def portfolio_view():
 # --- API Routes ---
 
 @app.route("/api/bets", methods=["POST"])
+@login_required
 def api_place_bet():
     """Place a new tracked bet."""
     data = request.json
@@ -377,6 +419,7 @@ def api_place_bet():
 
 
 @app.route("/api/bets/<int:bet_id>/settle", methods=["POST"])
+@login_required
 def api_settle_bet(bet_id):
     """Settle a bet as won, lost, or void."""
     data = request.json
@@ -406,13 +449,37 @@ def api_settle_bet(bet_id):
     return jsonify({"status": "ok", "payout": round(payout, 2), "profit": round(profit, 2)})
 
 
+@app.route("/api/bets/<int:bet_id>", methods=["PUT"])
+@login_required
+def api_edit_bet(bet_id):
+    """Edit a tracked bet."""
+    data = request.json
+    if not data:
+        return jsonify({"error": "No data"}), 400
+    bet = db.fetch_one("SELECT * FROM user_bets WHERE id = ?", [bet_id])
+    if not bet:
+        return jsonify({"error": "Bet not found"}), 404
+    updates = []
+    params = []
+    for field in ["stake", "odds", "bet_type", "bookmaker", "notes"]:
+        if field in data:
+            updates.append(f"{field} = ?")
+            params.append(data[field])
+    if updates:
+        params.append(bet_id)
+        db.execute(f"UPDATE user_bets SET {', '.join(updates)} WHERE id = ?", params)
+    return jsonify({"status": "ok"})
+
+
 @app.route("/api/bets/<int:bet_id>", methods=["DELETE"])
+@login_required
 def api_delete_bet(bet_id):
     """Delete a tracked bet."""
     db.execute("DELETE FROM user_bets WHERE id = ?", [bet_id])
     return jsonify({"status": "ok"})
 
 @app.route("/api/predict/<league>/<home_team>/<away_team>")
+@login_required
 def api_predict(league, home_team, away_team):
     """API endpoint for match prediction. Uses cached predictions when available."""
     home_team = home_team.replace("_", " ")
@@ -446,6 +513,7 @@ def api_predict(league, home_team, away_team):
 
 
 @app.route("/api/fixtures/<league>")
+@login_required
 def api_fixtures(league):
     """API endpoint for upcoming fixtures."""
     fixtures = football_data_api.get_upcoming_fixtures(league)
@@ -453,6 +521,7 @@ def api_fixtures(league):
 
 
 @app.route("/api/odds/<league>")
+@login_required
 def api_odds(league):
     """API endpoint for current odds."""
     odds = odds_api.get_odds(league)
@@ -460,6 +529,7 @@ def api_odds(league):
 
 
 @app.route("/api/standings/<league>")
+@login_required
 def api_standings(league):
     """API endpoint for league standings."""
     standings = football_data_api.get_standings(league)
@@ -467,12 +537,14 @@ def api_standings(league):
 
 
 @app.route("/api/usage")
+@login_required
 def api_usage():
     """API endpoint for API usage stats."""
     return jsonify(get_usage_summary())
 
 
 @app.route("/api/refresh-data", methods=["POST"])
+@login_required
 def api_refresh_data():
     """Manually trigger data refresh."""
     league = request.json.get("league", "PL") if request.json else "PL"
