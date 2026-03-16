@@ -108,41 +108,62 @@ def logout():
 @app.route("/")
 @login_required
 def dashboard():
-    """Main command center dashboard."""
-    league = request.args.get("league", "PL")
-    league_config = config.LEAGUES.get(league, config.LEAGUES["PL"])
+    """Main command center dashboard — shows ALL enabled leagues."""
+    enabled_leagues = {code: lg for code, lg in config.LEAGUES.items() if lg.get("enabled")}
 
-    # Get upcoming fixtures
-    fixtures = db.fetch_all(
-        """SELECT * FROM fixtures WHERE league = ? AND status IN ('SCHEDULED', 'TIMED')
-           ORDER BY match_date ASC LIMIT 20""",
-        [league]
-    )
+    leagues_data = {}
+    total_matches = 0
+    total_fixtures = 0
+    total_value_bets = 0
 
-    # Get predictions for upcoming fixtures
-    predictions = []
-    for f in fixtures:
-        pred = db.fetch_one(
-            "SELECT * FROM predictions WHERE league = ? AND home_team = ? AND away_team = ?",
-            [league, f["home_team"], f["away_team"]]
+    for code, lg_config in enabled_leagues.items():
+        # Get upcoming fixtures
+        fixtures = db.fetch_all(
+            """SELECT * FROM fixtures WHERE league = ? AND status IN ('SCHEDULED', 'TIMED')
+               ORDER BY match_date ASC LIMIT 20""",
+            [code]
         )
-        predictions.append({
-            "fixture": f,
-            "prediction": pred,
-        })
 
-    # Get value bets
-    value_bets = db.fetch_all(
-        """SELECT * FROM value_bets WHERE league = ? AND result = 'pending'
-           ORDER BY edge_percent DESC LIMIT 10""",
-        [league]
-    )
+        # Get predictions for upcoming fixtures
+        predictions = []
+        for f in fixtures:
+            pred = db.fetch_one(
+                "SELECT * FROM predictions WHERE league = ? AND home_team = ? AND away_team = ?",
+                [code, f["home_team"], f["away_team"]]
+            )
+            predictions.append({
+                "fixture": f,
+                "prediction": pred,
+            })
 
-    # Get standings from cache (don't hit API on page load)
-    try:
-        standings = football_data_api.get_standings(league)
-    except Exception:
-        standings = []
+        # Get value bets
+        value_bets = db.fetch_all(
+            """SELECT * FROM value_bets WHERE league = ? AND result = 'pending'
+               ORDER BY edge_percent DESC LIMIT 10""",
+            [code]
+        )
+
+        # Get standings from cache (don't hit API on page load)
+        try:
+            standings = football_data_api.get_standings(code)
+        except Exception:
+            standings = []
+
+        # Match count
+        match_count = football_data_uk.get_match_count(code)
+
+        leagues_data[code] = {
+            "config": lg_config,
+            "fixtures": fixtures,
+            "predictions": predictions,
+            "value_bets": value_bets,
+            "standings": standings,
+            "match_count": match_count,
+        }
+
+        total_matches += match_count
+        total_fixtures += len(fixtures)
+        total_value_bets += len(value_bets)
 
     # API usage
     try:
@@ -150,10 +171,7 @@ def dashboard():
     except Exception:
         api_usage = {}
 
-    # Match count
-    match_count = football_data_uk.get_match_count(league)
-
-    # Data freshness status
+    # Data freshness status (aggregated, not per league)
     data_status = {}
     try:
         for source in ["football_data_org", "football_data_uk", "odds_api", "reddit", "newsapi"]:
@@ -165,31 +183,16 @@ def dashboard():
                 "last_updated": last_call["called_at"][:16].replace("T", " ") if last_call else "Never",
                 "status": "ok" if last_call and last_call.get("response_code") == 200 else "unknown",
             }
-        # Add counts
-        data_status["summary"] = {
-            "matches": match_count,
-            "fixtures": len(fixtures),
-            "predictions": db.fetch_one("SELECT COUNT(*) as c FROM predictions WHERE league = ?", [league])["c"],
-            "odds_rows": db.fetch_one("SELECT COUNT(*) as c FROM odds WHERE league = ?", [league])["c"],
-            "value_bets": len(value_bets),
-            "sentiment_teams": db.fetch_one("SELECT COUNT(DISTINCT team) as c FROM sentiment WHERE league = ?", [league])["c"],
-            "team_ratings": db.fetch_one("SELECT COUNT(*) as c FROM team_ratings WHERE league = ?", [league])["c"],
-            "referee_profiles": db.fetch_one("SELECT COUNT(*) as c FROM referee_stats WHERE league = ?", [league])["c"],
-            "h2h_records": db.fetch_one("SELECT COUNT(*) as c FROM head_to_head WHERE league = ?", [league])["c"],
-        }
     except Exception:
         data_status = {}
 
     return render_template("dashboard.html",
-        league=league,
-        league_config=league_config,
         leagues=config.LEAGUES,
-        fixtures=fixtures,
-        predictions=predictions,
-        value_bets=value_bets,
-        standings=standings,
+        leagues_data=leagues_data,
+        total_matches=total_matches,
+        total_fixtures=total_fixtures,
+        total_value_bets=total_value_bets,
         api_usage=api_usage,
-        match_count=match_count,
         data_status=data_status,
         now=datetime.utcnow(),
     )
@@ -434,47 +437,52 @@ def league_view(league):
 @app.route("/sentiment")
 @login_required
 def sentiment_view():
-    """Sentiment tracker page."""
-    league = request.args.get("league", "PL")
-    league_config = config.LEAGUES.get(league, config.LEAGUES["PL"])
+    """Sentiment tracker page — shows ALL enabled leagues."""
+    enabled_leagues = {code: lg for code, lg in config.LEAGUES.items() if lg.get("enabled")}
 
-    sentiments = db.fetch_all(
-        """SELECT * FROM sentiment WHERE league = ?
-           ORDER BY score_date DESC, combined_score DESC""",
-        [league]
-    )
-
-    # Group by team, get latest
-    team_sentiments = {}
-    for s in sentiments:
-        if s["team"] not in team_sentiments:
-            team_sentiments[s["team"]] = s
+    leagues_sentiment = {}
+    for code, lg_config in enabled_leagues.items():
+        sentiments = db.fetch_all(
+            """SELECT * FROM sentiment WHERE league = ?
+               ORDER BY score_date DESC, combined_score DESC""",
+            [code]
+        )
+        # Group by team, get latest
+        team_sentiments = {}
+        for s in sentiments:
+            if s["team"] not in team_sentiments:
+                team_sentiments[s["team"]] = s
+        leagues_sentiment[code] = {
+            "config": lg_config,
+            "team_sentiments": team_sentiments,
+        }
 
     return render_template("sentiment.html",
-        league=league,
-        league_config=league_config,
         leagues=config.LEAGUES,
-        team_sentiments=team_sentiments,
+        leagues_sentiment=leagues_sentiment,
     )
 
 
 @app.route("/performance")
 @login_required
 def performance_view():
-    """Model backtest and performance page."""
-    league = request.args.get("league", "PL")
-    league_config = config.LEAGUES.get(league, config.LEAGUES["PL"])
+    """Model backtest and performance page — shows ALL enabled leagues."""
+    enabled_leagues = {code: lg for code, lg in config.LEAGUES.items() if lg.get("enabled")}
 
-    performance = db.fetch_all(
-        "SELECT * FROM model_performance WHERE league = ? ORDER BY season DESC",
-        [league]
-    )
+    leagues_performance = {}
+    for code, lg_config in enabled_leagues.items():
+        performance = db.fetch_all(
+            "SELECT * FROM model_performance WHERE league = ? ORDER BY season DESC",
+            [code]
+        )
+        leagues_performance[code] = {
+            "config": lg_config,
+            "performance": performance,
+        }
 
     return render_template("performance.html",
-        league=league,
-        league_config=league_config,
         leagues=config.LEAGUES,
-        performance=performance,
+        leagues_performance=leagues_performance,
     )
 
 
@@ -719,19 +727,13 @@ def api_delete_bet(bet_id):
 @app.route("/tracker")
 @login_required
 def tracker_view():
-    """Model Tracker -- automated prediction vs result tracking."""
-    league = request.args.get("league", "")
+    """Model Tracker -- automated prediction vs result tracking (all leagues)."""
+    enabled_leagues = {code: lg for code, lg in config.LEAGUES.items() if lg.get("enabled")}
 
-    # Query all tracker entries
-    if league:
-        entries = db.fetch_all(
-            "SELECT * FROM model_tracker WHERE league = ? ORDER BY match_date DESC",
-            [league]
-        )
-    else:
-        entries = db.fetch_all(
-            "SELECT * FROM model_tracker ORDER BY match_date DESC"
-        )
+    # Query all tracker entries across all leagues
+    entries = db.fetch_all(
+        "SELECT * FROM model_tracker ORDER BY match_date DESC"
+    )
 
     settled = [e for e in entries if e["status"] == "settled"]
     pending = [e for e in entries if e["status"] == "pending"]
@@ -787,6 +789,23 @@ def tracker_view():
             "accuracy": round(oc_correct / oc_total * 100, 1) if oc_total > 0 else 0,
         }
 
+    # -- Per-league breakdown --
+    league_breakdown = {}
+    for code, lg_config in enabled_leagues.items():
+        lg_settled = [e for e in settled if e.get("league") == code]
+        lg_correct = sum(1 for e in lg_settled if e["top_pick_correct"] == 1)
+        lg_total = len(lg_settled)
+        lg_pnl = sum(e["top_pick_pnl"] or 0 for e in lg_settled)
+        lg_staked = lg_total * 100
+        league_breakdown[code] = {
+            "config": lg_config,
+            "settled": lg_total,
+            "correct": lg_correct,
+            "accuracy": round(lg_correct / lg_total * 100, 1) if lg_total > 0 else 0,
+            "pnl": round(lg_pnl, 2),
+            "roi": round(lg_pnl / lg_staked * 100, 1) if lg_staked > 0 else 0,
+        }
+
     summary = {
         "total": len(entries),
         "settled": top_total,
@@ -813,10 +832,10 @@ def tracker_view():
     }
 
     return render_template("tracker.html",
-        league=league,
         leagues=config.LEAGUES,
         entries=entries,
         summary=summary,
+        league_breakdown=league_breakdown,
         now=datetime.utcnow(),
     )
 
@@ -1067,8 +1086,8 @@ def api_usage():
 @app.route("/api/refresh-data", methods=["POST"])
 @login_required
 def api_refresh_data():
-    """Manually trigger data refresh."""
-    league = request.json.get("league", "PL") if request.json else "PL"
+    """Manually trigger data refresh for ALL enabled leagues."""
+    enabled_leagues = {code: lg for code, lg in config.LEAGUES.items() if lg.get("enabled")}
     results = {}
 
     action = request.json.get("action", "all") if request.json else "all"
@@ -1078,7 +1097,6 @@ def api_refresh_data():
         results["csv_matches_imported"] = count
         if count > 0:
             results["note_csv"] = "New results found — rebuilding ratings"
-            # Rebuild ratings and retrain when new match data arrives
             try:
                 from scheduler import task_ratings
                 task_ratings()
@@ -1087,12 +1105,24 @@ def api_refresh_data():
                 logger.error("Rating rebuild failed: %s", e)
 
     if action in ("all", "fixtures"):
-        fixtures = football_data_api.get_upcoming_fixtures(league)
-        results["fixtures_fetched"] = len(fixtures)
+        total_fixtures = 0
+        for code in enabled_leagues:
+            try:
+                fixtures = football_data_api.get_upcoming_fixtures(code)
+                total_fixtures += len(fixtures)
+            except Exception as e:
+                logger.error("Fixtures fetch failed for %s: %s", code, e)
+        results["fixtures_fetched"] = total_fixtures
 
     if action in ("all", "odds"):
-        odds = odds_api.get_odds(league)
-        results["odds_events"] = len(odds)
+        total_odds = 0
+        for code in enabled_leagues:
+            try:
+                odds = odds_api.get_odds(code)
+                total_odds += len(odds)
+            except Exception as e:
+                logger.error("Odds fetch failed for %s: %s", code, e)
+        results["odds_events"] = total_odds
 
     # If we got new fixtures or odds, regenerate predictions
     if action == "all" and (results.get("fixtures_fetched", 0) > 0 or results.get("odds_events", 0) > 0):

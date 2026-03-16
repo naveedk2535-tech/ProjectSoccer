@@ -2,6 +2,11 @@
 {% block title %}Sentiment Tracker{% endblock %}
 
 {% block content %}
+{% set league_colors = {
+    'PL': {'text': 'text-indigo-700', 'bg': 'bg-indigo-50', 'border': 'border-indigo-200', 'bar': 'bg-indigo-500'},
+    'PD': {'text': 'text-orange-700', 'bg': 'bg-orange-50', 'border': 'border-orange-200', 'bar': 'bg-orange-500'},
+    'BL1': {'text': 'text-red-700', 'bg': 'bg-red-50', 'border': 'border-red-200', 'bar': 'bg-red-500'}
+} %}
 <div class="space-y-6" x-data="{ showHelp: false }">
     <div>
         <div class="flex items-center space-x-2">
@@ -12,62 +17,83 @@
                 </svg>
             </button>
         </div>
-        <p class="text-sm text-slate-500">Reddit + News sentiment analysis per team</p>
+        <p class="text-sm text-slate-500">Reddit + News sentiment analysis per team across all leagues</p>
     </div>
 
-    <!-- Sentiment Grid -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-        {% for team, sent in team_sentiments.items() %}
-        <div class="glass rounded-xl p-5 stat-card">
-            <div class="flex items-center justify-between mb-3">
-                <h3 class="text-sm font-semibold text-slate-800">{{ team }}</h3>
-                <span class="text-lg font-mono font-bold
-                    {% if sent.combined_score and sent.combined_score > 0.1 %}text-green-700
-                    {% elif sent.combined_score and sent.combined_score < -0.1 %}text-red-600
-                    {% else %}text-slate-500{% endif %}">
-                    {% if sent.combined_score %}
-                    {{ '%+.2f'|format(sent.combined_score) }}
-                    {% else %}0.00{% endif %}
-                </span>
-            </div>
+    {% for code, ls in leagues_sentiment.items() %}
+    {% set colors = league_colors.get(code, {'text': 'text-slate-700', 'bg': 'bg-slate-50', 'border': 'border-slate-200', 'bar': 'bg-slate-500'}) %}
 
-            <!-- Sentiment gauge -->
-            <div class="h-2 bg-slate-100 rounded-full overflow-hidden mb-3">
-                {% set pct = ((sent.combined_score or 0) + 1) / 2 * 100 %}
-                <div class="h-full rounded-full
-                    {% if (sent.combined_score or 0) > 0 %}bg-gradient-to-r from-yellow-500 to-green-500
-                    {% else %}bg-gradient-to-r from-red-500 to-yellow-500{% endif %}"
-                     style="width: {{ pct|round(0)|int }}%"></div>
-            </div>
-
-            <div class="grid grid-cols-2 gap-2 text-[10px]">
-                <div class="bg-slate-50 rounded p-2">
-                    <p class="text-slate-500">Reddit</p>
-                    <p class="text-slate-700 font-mono">{{ sent.reddit_score|round(2) if sent.reddit_score else '—' }}</p>
-                </div>
-                <div class="bg-slate-50 rounded p-2">
-                    <p class="text-slate-500">News</p>
-                    <p class="text-slate-700 font-mono">{{ sent.news_score|round(2) if sent.news_score else '—' }}</p>
-                </div>
-                <div class="bg-slate-50 rounded p-2">
-                    <p class="text-slate-500">Volume</p>
-                    <p class="text-slate-700 font-mono">{{ sent.reddit_volume or 0 }}</p>
-                </div>
-                <div class="bg-slate-50 rounded p-2">
-                    <p class="text-slate-500">Trend</p>
-                    <p class="font-mono {% if sent.sentiment_trend and sent.sentiment_trend > 0 %}text-green-700{% elif sent.sentiment_trend and sent.sentiment_trend < 0 %}text-red-600{% else %}text-slate-500{% endif %}">
-                        {% if sent.sentiment_trend %}{{ '%+.2f'|format(sent.sentiment_trend) }}{% else %}—{% endif %}
-                    </p>
-                </div>
+    <!-- {{ ls.config.name }} Section -->
+    <div>
+        <div class="flex items-center space-x-3 mb-4">
+            <div class="w-1 h-8 rounded-full {{ colors.bar }}"></div>
+            <div>
+                <h2 class="text-lg font-bold {{ colors.text }}">{{ ls.config.name }}</h2>
+                <p class="text-xs text-slate-500">{{ ls.config.country }} &middot; {{ ls.team_sentiments|length }} teams</p>
             </div>
         </div>
-        {% else %}
-        <div class="col-span-full glass rounded-xl p-12 text-center">
-            <p class="text-slate-500">No sentiment data collected yet.</p>
-            <p class="text-slate-400 text-sm mt-2">Sentiment data is fetched daily from Reddit and NewsAPI.</p>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {% for team, sent in ls.team_sentiments.items() %}
+            <div class="glass rounded-xl p-5 stat-card">
+                <div class="flex items-center justify-between mb-3">
+                    <h3 class="text-sm font-semibold text-slate-800">{{ team }}</h3>
+                    <span class="text-lg font-mono font-bold
+                        {% if sent.combined_score and sent.combined_score > 0.1 %}text-green-700
+                        {% elif sent.combined_score and sent.combined_score < -0.1 %}text-red-600
+                        {% else %}text-slate-500{% endif %}">
+                        {% if sent.combined_score %}
+                        {{ '%+.2f'|format(sent.combined_score) }}
+                        {% else %}0.00{% endif %}
+                    </span>
+                </div>
+
+                <!-- Sentiment gauge -->
+                <div class="h-2 bg-slate-100 rounded-full overflow-hidden mb-3">
+                    {% set pct = ((sent.combined_score or 0) + 1) / 2 * 100 %}
+                    <div class="h-full rounded-full
+                        {% if (sent.combined_score or 0) > 0 %}bg-gradient-to-r from-yellow-500 to-green-500
+                        {% else %}bg-gradient-to-r from-red-500 to-yellow-500{% endif %}"
+                         style="width: {{ pct|round(0)|int }}%"></div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-2 text-[10px]">
+                    <div class="bg-slate-50 rounded p-2">
+                        <p class="text-slate-500">Reddit</p>
+                        <p class="text-slate-700 font-mono">{{ sent.reddit_score|round(2) if sent.reddit_score else '---' }}</p>
+                    </div>
+                    <div class="bg-slate-50 rounded p-2">
+                        <p class="text-slate-500">News</p>
+                        <p class="text-slate-700 font-mono">{{ sent.news_score|round(2) if sent.news_score else '---' }}</p>
+                    </div>
+                    <div class="bg-slate-50 rounded p-2">
+                        <p class="text-slate-500">Volume</p>
+                        <p class="text-slate-700 font-mono">{{ sent.reddit_volume or 0 }}</p>
+                    </div>
+                    <div class="bg-slate-50 rounded p-2">
+                        <p class="text-slate-500">Trend</p>
+                        <p class="font-mono {% if sent.sentiment_trend and sent.sentiment_trend > 0 %}text-green-700{% elif sent.sentiment_trend and sent.sentiment_trend < 0 %}text-red-600{% else %}text-slate-500{% endif %}">
+                            {% if sent.sentiment_trend %}{{ '%+.2f'|format(sent.sentiment_trend) }}{% else %}---{% endif %}
+                        </p>
+                    </div>
+                </div>
+            </div>
+            {% else %}
+            <div class="col-span-full glass rounded-xl p-8 text-center">
+                <p class="text-slate-400 text-sm">No sentiment data for {{ ls.config.name }} yet.</p>
+                <p class="text-slate-400 text-xs mt-1">Sentiment data is fetched daily from Reddit and NewsAPI.</p>
+            </div>
+            {% endfor %}
         </div>
-        {% endfor %}
     </div>
+    {% endfor %}
+
+    {% if not leagues_sentiment %}
+    <div class="glass rounded-xl p-12 text-center">
+        <p class="text-slate-500">No sentiment data collected yet.</p>
+        <p class="text-slate-400 text-sm mt-2">Sentiment data is fetched daily from Reddit and NewsAPI.</p>
+    </div>
+    {% endif %}
 
     <!-- Help Modal -->
     <div x-show="showHelp" x-cloak class="fixed inset-0 z-[100] flex items-center justify-center p-4" @click.self="showHelp = false">
@@ -76,21 +102,21 @@
             <button @click="showHelp = false" class="absolute top-4 right-4 w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-400 hover:text-slate-600">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
             </button>
-            <h2 class="text-xl font-black text-slate-800 mb-4">Sentiment Tracker — Help</h2>
+            <h2 class="text-xl font-black text-slate-800 mb-4">Sentiment Tracker -- Help</h2>
             <div class="space-y-4 text-sm text-slate-600">
                 <div>
                     <p class="font-bold text-slate-800">What is this page?</p>
-                    <p>This tracks what the internet thinks about each team. We scan Reddit (r/soccer, r/PremierLeague) and news headlines, then score the mood from -1 (very negative) to +1 (very positive).</p>
+                    <p>This tracks what the internet thinks about each team. We scan Reddit and news headlines, then score the mood from -1 (very negative) to +1 (very positive).</p>
                 </div>
                 <div>
                     <p class="font-bold text-slate-800">Why does this matter?</p>
-                    <p>Sentiment is a weak signal (only 10% of our prediction model), but it occasionally catches things the stats miss — like when a key player gets injured, a manager gets sacked, or there's drama in the dressing room. A sudden spike in volume (lots of posts) usually means something big happened.</p>
+                    <p>Sentiment is a weak signal (only 10% of our prediction model), but it occasionally catches things the stats miss -- like when a key player gets injured, a manager gets sacked, or there's drama in the dressing room.</p>
                 </div>
                 <div>
                     <p class="font-bold text-slate-800">How to read the cards</p>
                     <ul class="list-disc list-inside space-y-1 mt-1">
                         <li><span class="font-semibold">Score:</span> -1 to +1. Above +0.1 = positive vibes. Below -0.1 = negative vibes.</li>
-                        <li><span class="font-semibold">Volume:</span> How many Reddit posts mentioned the team this week. More = more attention.</li>
+                        <li><span class="font-semibold">Volume:</span> How many Reddit posts mentioned the team this week.</li>
                         <li><span class="font-semibold">Trend:</span> Is sentiment getting better or worse vs last week?</li>
                     </ul>
                 </div>

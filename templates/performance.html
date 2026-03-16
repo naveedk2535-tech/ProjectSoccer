@@ -2,6 +2,11 @@
 {% block title %}Model Performance{% endblock %}
 
 {% block content %}
+{% set league_colors = {
+    'PL': {'text': 'text-indigo-700', 'bg': 'bg-indigo-50', 'border': 'border-indigo-200', 'bar': 'bg-indigo-500'},
+    'PD': {'text': 'text-orange-700', 'bg': 'bg-orange-50', 'border': 'border-orange-200', 'bar': 'bg-orange-500'},
+    'BL1': {'text': 'text-red-700', 'bg': 'bg-red-50', 'border': 'border-red-200', 'bar': 'bg-red-500'}
+} %}
 <div class="space-y-6" x-data="{ showHelp: false }">
     <div>
         <div class="flex items-center space-x-2">
@@ -12,58 +17,73 @@
                 </svg>
             </button>
         </div>
-        <p class="text-sm text-slate-500">Backtest results, calibration, and ROI tracking</p>
+        <p class="text-sm text-slate-500">Backtest results, calibration, and ROI tracking across all leagues</p>
     </div>
 
-    {% if performance %}
-    <!-- Performance Cards -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-        {% for p in performance %}
-        <div class="glass rounded-xl p-5 stat-card">
-            <p class="text-xs text-slate-500 uppercase tracking-wider">{{ p.model_name }}</p>
-            <div class="mt-3 space-y-2">
-                <div class="flex justify-between text-sm">
-                    <span class="text-slate-500">Accuracy</span>
-                    <span class="font-mono text-slate-800">{{ (p.accuracy * 100)|round(1) if p.accuracy else '—' }}%</span>
-                </div>
-                <div class="flex justify-between text-sm">
-                    <span class="text-slate-500">Brier Score</span>
-                    <span class="font-mono {% if p.brier_score and p.brier_score < 0.2 %}text-green-700{% else %}text-slate-700{% endif %}">
-                        {{ p.brier_score|round(4) if p.brier_score else '—' }}
-                    </span>
-                </div>
-                <div class="flex justify-between text-sm">
-                    <span class="text-slate-500">ROI</span>
-                    <span class="font-mono {% if p.roi_percent and p.roi_percent > 0 %}text-green-700{% else %}text-red-600{% endif %}">
-                        {% if p.roi_percent %}{{ '%+.1f'|format(p.roi_percent) }}%{% else %}—{% endif %}
-                    </span>
-                </div>
-                <div class="flex justify-between text-sm">
-                    <span class="text-slate-500">Yield</span>
-                    <span class="font-mono text-slate-700">
-                        {% if p.yield_percent %}{{ '%+.1f'|format(p.yield_percent) }}%{% else %}—{% endif %}
-                    </span>
-                </div>
-                <div class="flex justify-between text-sm">
-                    <span class="text-slate-500">Predictions</span>
-                    <span class="font-mono text-slate-700">{{ p.total_predictions or 0 }}</span>
-                </div>
+    {% set has_any_data = [] %}
+    {% for code, lp in leagues_performance.items() %}
+    {% if lp.performance %}{% if has_any_data.append(1) %}{% endif %}{% endif %}
+    {% endfor %}
+
+    {% for code, lp in leagues_performance.items() %}
+    {% set colors = league_colors.get(code, {'text': 'text-slate-700', 'bg': 'bg-slate-50', 'border': 'border-slate-200', 'bar': 'bg-slate-500'}) %}
+
+    <!-- {{ lp.config.name }} Section -->
+    <div>
+        <div class="flex items-center space-x-3 mb-4">
+            <div class="w-1 h-8 rounded-full {{ colors.bar }}"></div>
+            <div>
+                <h2 class="text-lg font-bold {{ colors.text }}">{{ lp.config.name }}</h2>
+                <p class="text-xs text-slate-500">{{ lp.config.country }}</p>
             </div>
         </div>
-        {% endfor %}
-    </div>
 
-    <!-- Calibration Chart -->
-    <div class="glass rounded-xl overflow-hidden">
-        <div class="px-6 py-4 border-b border-slate-200">
-            <h3 class="text-sm font-semibold text-slate-500 uppercase tracking-wider">Calibration Curve</h3>
-            <p class="text-xs text-slate-400">Does a 60% prediction win 60% of the time?</p>
+        {% if lp.performance %}
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-4">
+            {% for p in lp.performance %}
+            <div class="glass rounded-xl p-5 stat-card">
+                <p class="text-xs text-slate-500 uppercase tracking-wider">{{ p.model_name }}</p>
+                <div class="mt-3 space-y-2">
+                    <div class="flex justify-between text-sm">
+                        <span class="text-slate-500">Accuracy</span>
+                        <span class="font-mono text-slate-800">{{ (p.accuracy * 100)|round(1) if p.accuracy else '---' }}%</span>
+                    </div>
+                    <div class="flex justify-between text-sm">
+                        <span class="text-slate-500">Brier Score</span>
+                        <span class="font-mono {% if p.brier_score and p.brier_score < 0.2 %}text-green-700{% else %}text-slate-700{% endif %}">
+                            {{ p.brier_score|round(4) if p.brier_score else '---' }}
+                        </span>
+                    </div>
+                    <div class="flex justify-between text-sm">
+                        <span class="text-slate-500">ROI</span>
+                        <span class="font-mono {% if p.roi_percent and p.roi_percent > 0 %}text-green-700{% else %}text-red-600{% endif %}">
+                            {% if p.roi_percent %}{{ '%+.1f'|format(p.roi_percent) }}%{% else %}---{% endif %}
+                        </span>
+                    </div>
+                    <div class="flex justify-between text-sm">
+                        <span class="text-slate-500">Yield</span>
+                        <span class="font-mono text-slate-700">
+                            {% if p.yield_percent %}{{ '%+.1f'|format(p.yield_percent) }}%{% else %}---{% endif %}
+                        </span>
+                    </div>
+                    <div class="flex justify-between text-sm">
+                        <span class="text-slate-500">Predictions</span>
+                        <span class="font-mono text-slate-700">{{ p.total_predictions or 0 }}</span>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
         </div>
-        <div class="p-6">
-            <canvas id="calibrationChart" width="600" height="300"></canvas>
+        {% else %}
+        <div class="glass rounded-xl p-8 text-center mb-4">
+            <p class="text-slate-400 text-sm">No backtest data for {{ lp.config.name }} yet.</p>
+            <p class="text-slate-400 text-xs mt-1">Import historical data and run the backtest to see model performance.</p>
         </div>
+        {% endif %}
     </div>
-    {% else %}
+    {% endfor %}
+
+    {% if not has_any_data %}
     <div class="glass rounded-xl p-12 text-center">
         <p class="text-slate-500 text-lg">No backtest data yet</p>
         <p class="text-slate-400 text-sm mt-2">Import historical data and run the backtest to see model performance.</p>
@@ -78,79 +98,26 @@
             <button @click="showHelp = false" class="absolute top-4 right-4 w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-400 hover:text-slate-600">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
             </button>
-            <h2 class="text-xl font-black text-slate-800 mb-4">Model Performance — Help</h2>
+            <h2 class="text-xl font-black text-slate-800 mb-4">Model Performance -- Help</h2>
             <div class="space-y-4 text-sm text-slate-600">
                 <div>
                     <p class="font-bold text-slate-800">What is this page?</p>
-                    <p>This is proof the model works. We ran it on 631 historical matches where we already know the results, and measured how well it predicted them.</p>
+                    <p>This is proof the model works. We ran it on historical matches where we already know the results, and measured how well it predicted them.</p>
                 </div>
                 <div>
                     <p class="font-bold text-slate-800">Accuracy</p>
-                    <p>What % of matches did each model predict correctly. Random guessing would be ~33% (three outcomes: H/D/A). Our ensemble hits 54.4% — significantly better than random.</p>
+                    <p>What % of matches did each model predict correctly. Random guessing would be ~33% (three outcomes: H/D/A).</p>
                 </div>
                 <div>
                     <p class="font-bold text-slate-800">Brier Score</p>
-                    <p>A more sophisticated accuracy measure. Lower = better. 0 = perfect predictions. 0.25 = random guessing. Our 0.574 is for all 3 outcomes combined (so divide roughly by 3 to compare to single-outcome Brier).</p>
+                    <p>A more sophisticated accuracy measure. Lower = better. 0 = perfect predictions. 0.25 = random guessing.</p>
                 </div>
                 <div>
                     <p class="font-bold text-slate-800">ROI</p>
-                    <p>If you had bet every value bet the model flagged over 3 seasons, what would your return be? +31.3% means for every $100 staked, you'd have $131.30 back.</p>
-                </div>
-                <div>
-                    <p class="font-bold text-slate-800">Calibration</p>
-                    <p>The ultimate trust test. When our model says '60% chance', does that team actually win 60% of the time? Ours shows 60% predicted → 61.9% observed. That's well calibrated — the model knows what it knows.</p>
+                    <p>If you had bet every value bet the model flagged, what would your return be?</p>
                 </div>
             </div>
         </div>
     </div>
 </div>
-
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    const ctx = document.getElementById('calibrationChart');
-    if (!ctx) return;
-
-    new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: ['10%', '20%', '30%', '40%', '50%', '60%', '70%', '80%', '90%'],
-            datasets: [{
-                label: 'Perfect Calibration',
-                data: [10, 20, 30, 40, 50, 60, 70, 80, 90],
-                borderColor: '#374151',
-                borderDash: [5, 5],
-                borderWidth: 1,
-                pointRadius: 0,
-                fill: false,
-            }, {
-                label: 'Ensemble Model',
-                data: [],  // populated from backtest
-                borderColor: '#3b82f6',
-                borderWidth: 2,
-                pointRadius: 4,
-                pointBackgroundColor: '#3b82f6',
-                fill: false,
-            }]
-        },
-        options: {
-            responsive: true,
-            plugins: {
-                legend: { labels: { color: '#64748b', font: { size: 11 } } }
-            },
-            scales: {
-                x: {
-                    title: { display: true, text: 'Predicted Probability', color: '#6b7280' },
-                    ticks: { color: '#64748b' },
-                    grid: { color: 'rgba(0,0,0,0.06)' }
-                },
-                y: {
-                    title: { display: true, text: 'Observed Frequency', color: '#6b7280' },
-                    ticks: { color: '#64748b' },
-                    grid: { color: 'rgba(0,0,0,0.06)' }
-                }
-            }
-        }
-    });
-});
-</script>
 {% endblock %}

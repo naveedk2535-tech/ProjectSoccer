@@ -2,16 +2,25 @@
 {% block title %}Command Center{% endblock %}
 
 {% block content %}
+{% set league_colors = {
+    'PL': {'accent': 'indigo', 'bg': 'bg-indigo-50', 'border': 'border-indigo-200', 'text': 'text-indigo-700', 'badge': 'bg-indigo-100 text-indigo-700', 'bar': 'bg-indigo-500'},
+    'PD': {'accent': 'orange', 'bg': 'bg-orange-50', 'border': 'border-orange-200', 'text': 'text-orange-700', 'badge': 'bg-orange-100 text-orange-700', 'bar': 'bg-orange-500'},
+    'BL1': {'accent': 'red', 'bg': 'bg-red-50', 'border': 'border-red-200', 'text': 'text-red-700', 'badge': 'bg-red-100 text-red-700', 'bar': 'bg-red-500'}
+} %}
 <div class="space-y-6">
     <!-- Header Stats Row -->
-    <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-        <!-- League Selector -->
+    <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
+        <!-- All Leagues Header -->
         <div class="glass rounded-xl p-4 stat-card col-span-2">
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-xs text-slate-500 uppercase tracking-wider">Active League</p>
-                    <p class="text-2xl font-black text-slate-800 mt-1">{{ league_config.name }}</p>
-                    <p class="text-xs text-slate-500 mt-1">{{ league_config.country }}</p>
+                    <p class="text-xs text-slate-500 uppercase tracking-wider">Command Center</p>
+                    <p class="text-2xl font-black text-slate-800 mt-1">All Leagues</p>
+                    <p class="text-xs text-slate-500 mt-1">
+                        {% for code, ld in leagues_data.items() %}
+                        <span class="inline-block mr-2">{{ ld.config.name }}</span>
+                        {% endfor %}
+                    </p>
                 </div>
                 <div class="flex items-center space-x-2">
                     <!-- How To Button -->
@@ -28,32 +37,24 @@
             </div>
         </div>
 
-        <!-- Matches in DB -->
+        <!-- Total Historical Matches -->
         <div class="glass rounded-xl p-4 stat-card">
             <p class="text-xs text-slate-500 uppercase tracking-wider">Historical Matches</p>
-            <p class="text-2xl font-extrabold text-slate-800 mt-1 font-mono">{{ match_count }}</p>
-            <p class="text-xs text-slate-500 mt-1">in database</p>
+            <p class="text-2xl font-extrabold text-slate-800 mt-1 font-mono">{{ total_matches }}</p>
+            <p class="text-xs text-slate-500 mt-1">across all leagues</p>
         </div>
 
-        <!-- Upcoming -->
+        <!-- Total Upcoming -->
         <div class="glass rounded-xl p-4 stat-card">
             <p class="text-xs text-slate-500 uppercase tracking-wider">Upcoming</p>
-            <p class="text-2xl font-extrabold text-cyan-600 mt-1 font-mono">{{ fixtures|length }}</p>
+            <p class="text-2xl font-extrabold text-cyan-600 mt-1 font-mono">{{ total_fixtures }}</p>
             <p class="text-xs text-slate-500 mt-1">fixtures loaded</p>
-        </div>
-
-        <!-- Value Bets -->
-        <div class="glass rounded-xl p-4 stat-card">
-            <p class="text-xs text-slate-500 uppercase tracking-wider">Value Bets</p>
-            <p class="text-2xl font-extrabold text-green-700 mt-1 font-mono">{{ value_bets|length }}</p>
-            <p class="text-xs text-slate-500 mt-1">active flags</p>
         </div>
 
         <!-- Model Status -->
         <div class="glass rounded-xl p-4 stat-card" x-data="{ health: null }" x-init="fetch('/api/diagnosis').then(r=>r.json()).then(d=>health=d).catch(()=>null)">
             <div class="flex items-center justify-between">
                 <p class="text-xs text-slate-500 uppercase tracking-wider">Models</p>
-                <!-- Model Health Dot -->
                 <template x-if="health">
                     <span class="relative flex h-3 w-3" :title="'Model Health: ' + health.overall_status">
                         <span class="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75"
@@ -73,105 +74,122 @@
         </div>
     </div>
 
-    <!-- Main Grid -->
+    <!-- Main Grid: Fixtures left, Sidebar right -->
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <!-- Upcoming Fixtures + Predictions (2 cols) -->
-        <div class="lg:col-span-2 glass rounded-xl overflow-hidden">
-            <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
-                <div>
-                    <h2 class="text-lg font-semibold text-slate-800">Upcoming Fixtures</h2>
-                    <p class="text-xs text-slate-500">Click any match for full breakdown</p>
-                </div>
-            </div>
-
-            <div class="divide-y divide-slate-200">
-                {% if fixtures %}
-                {% for f in fixtures %}
-                <a href="/match/{{ league }}/{{ f.home_team|replace(' ', '_') }}/{{ f.away_team|replace(' ', '_') }}"
-                   class="match-row block px-6 py-4 transition">
-                    <div class="flex items-center justify-between">
-                        <!-- Date -->
-                        <div class="w-24 text-center">
-                            <p class="text-xs text-slate-500 local-date" data-utc="{{ f.match_date if f.match_date else '' }}">{{ f.match_date[:10] if f.match_date else '—' }}</p>
-                            <p class="text-xs text-slate-400 font-mono local-time-short" data-utc="{{ f.match_date if f.match_date else '' }}">{{ f.match_date[11:16] if f.match_date and f.match_date|length > 11 else '' }}</p>
-                        </div>
-
-                        <!-- Home Team -->
-                        <div class="flex-1 text-right pr-4">
-                            <span class="text-sm font-semibold text-slate-800">{{ f.home_team }}</span>
-                        </div>
-
-                        <!-- Prediction -->
-                        {% set pred = predictions[loop.index0].prediction if predictions|length > loop.index0 else None %}
-                        <div class="flex items-center space-x-2 w-48 justify-center">
-                            {% if pred %}
-                            <div class="text-center px-2 py-1 rounded {% if pred.ensemble_home and pred.ensemble_home > pred.ensemble_draw and pred.ensemble_home > pred.ensemble_away %}bg-green-900/30 border border-green-800/50{% else %}bg-slate-100{% endif %}">
-                                <p class="text-[10px] text-slate-500">H</p>
-                                <p class="text-sm font-mono {% if pred.ensemble_home and pred.ensemble_home > 0.5 %}text-green-700{% else %}text-slate-700{% endif %}">
-                                    {{ (pred.ensemble_home * 100)|round(0)|int if pred.ensemble_home else '—' }}%
-                                </p>
-                            </div>
-                            <div class="text-center px-2 py-1 rounded {% if pred.ensemble_draw and pred.ensemble_draw > pred.ensemble_home and pred.ensemble_draw > pred.ensemble_away %}bg-yellow-900/30 border border-yellow-800/50{% else %}bg-slate-100{% endif %}">
-                                <p class="text-[10px] text-slate-500">D</p>
-                                <p class="text-sm font-mono text-slate-700">
-                                    {{ (pred.ensemble_draw * 100)|round(0)|int if pred.ensemble_draw else '—' }}%
-                                </p>
-                            </div>
-                            <div class="text-center px-2 py-1 rounded {% if pred.ensemble_away and pred.ensemble_away > pred.ensemble_home and pred.ensemble_away > pred.ensemble_draw %}bg-blue-900/30 border border-blue-800/50{% else %}bg-slate-100{% endif %}">
-                                <p class="text-[10px] text-slate-500">A</p>
-                                <p class="text-sm font-mono {% if pred.ensemble_away and pred.ensemble_away > 0.5 %}text-blue-600{% else %}text-slate-700{% endif %}">
-                                    {{ (pred.ensemble_away * 100)|round(0)|int if pred.ensemble_away else '—' }}%
-                                </p>
-                            </div>
-                            {% else %}
-                            <div class="text-center">
-                                <span class="text-xs text-slate-400">No prediction yet</span>
-                            </div>
-                            {% endif %}
-                        </div>
-
-                        <!-- Away Team -->
-                        <div class="flex-1 pl-4">
-                            <span class="text-sm font-semibold text-slate-800">{{ f.away_team }}</span>
-                        </div>
-
-                        <!-- Arrow -->
-                        <div class="w-8 text-right">
-                            <svg class="w-4 h-4 text-slate-400 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-                            </svg>
+        <!-- Fixtures Column (2/3 width) -->
+        <div class="lg:col-span-2 space-y-6">
+            {% for code, ld in leagues_data.items() %}
+            {% set colors = league_colors.get(code, {'accent': 'slate', 'bg': 'bg-slate-50', 'border': 'border-slate-200', 'text': 'text-slate-700', 'badge': 'bg-slate-100 text-slate-700', 'bar': 'bg-slate-500'}) %}
+            <!-- {{ ld.config.name }} Section -->
+            <div class="glass rounded-xl overflow-hidden">
+                <!-- League Header -->
+                <div class="px-6 py-4 border-b {{ colors.border }} {{ colors.bg }} flex items-center justify-between">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-1 h-10 rounded-full {{ colors.bar }}"></div>
+                        <div>
+                            <h2 class="text-lg font-bold {{ colors.text }}">{{ ld.config.name }}</h2>
+                            <p class="text-xs text-slate-500">{{ ld.config.country }} &middot; {{ ld.fixtures|length }} fixtures &middot; {{ ld.match_count }} historical matches</p>
                         </div>
                     </div>
-                </a>
-                {% endfor %}
-                {% else %}
-                <div class="px-6 py-12 text-center">
-                    <p class="text-slate-500">No upcoming fixtures loaded</p>
-                    <button onclick="refreshData('fixtures')"
-                            class="mt-4 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-sm transition">
-                        Load Fixtures
-                    </button>
+                    <a href="/league/{{ code }}" class="text-xs {{ colors.text }} hover:underline font-medium">
+                        View League &rarr;
+                    </a>
                 </div>
-                {% endif %}
+
+                <div class="divide-y divide-slate-200">
+                    {% if ld.fixtures %}
+                    {% for f in ld.fixtures %}
+                    <a href="/match/{{ code }}/{{ f.home_team|replace(' ', '_') }}/{{ f.away_team|replace(' ', '_') }}"
+                       class="match-row block px-6 py-4 transition">
+                        <div class="flex items-center justify-between">
+                            <!-- Date -->
+                            <div class="w-24 text-center">
+                                <p class="text-xs text-slate-500 local-date" data-utc="{{ f.match_date if f.match_date else '' }}">{{ f.match_date[:10] if f.match_date else '---' }}</p>
+                                <p class="text-xs text-slate-400 font-mono local-time-short" data-utc="{{ f.match_date if f.match_date else '' }}">{{ f.match_date[11:16] if f.match_date and f.match_date|length > 11 else '' }}</p>
+                            </div>
+
+                            <!-- Home Team -->
+                            <div class="flex-1 text-right pr-4">
+                                <span class="text-sm font-semibold text-slate-800">{{ f.home_team }}</span>
+                            </div>
+
+                            <!-- Prediction -->
+                            {% set pred = ld.predictions[loop.index0].prediction if ld.predictions|length > loop.index0 else None %}
+                            <div class="flex items-center space-x-2 w-48 justify-center">
+                                {% if pred %}
+                                <div class="text-center px-2 py-1 rounded {% if pred.ensemble_home and pred.ensemble_home > pred.ensemble_draw and pred.ensemble_home > pred.ensemble_away %}bg-green-900/30 border border-green-800/50{% else %}bg-slate-100{% endif %}">
+                                    <p class="text-[10px] text-slate-500">H</p>
+                                    <p class="text-sm font-mono {% if pred.ensemble_home and pred.ensemble_home > 0.5 %}text-green-700{% else %}text-slate-700{% endif %}">
+                                        {{ (pred.ensemble_home * 100)|round(0)|int if pred.ensemble_home else '---' }}%
+                                    </p>
+                                </div>
+                                <div class="text-center px-2 py-1 rounded {% if pred.ensemble_draw and pred.ensemble_draw > pred.ensemble_home and pred.ensemble_draw > pred.ensemble_away %}bg-yellow-900/30 border border-yellow-800/50{% else %}bg-slate-100{% endif %}">
+                                    <p class="text-[10px] text-slate-500">D</p>
+                                    <p class="text-sm font-mono text-slate-700">
+                                        {{ (pred.ensemble_draw * 100)|round(0)|int if pred.ensemble_draw else '---' }}%
+                                    </p>
+                                </div>
+                                <div class="text-center px-2 py-1 rounded {% if pred.ensemble_away and pred.ensemble_away > pred.ensemble_home and pred.ensemble_away > pred.ensemble_draw %}bg-blue-900/30 border border-blue-800/50{% else %}bg-slate-100{% endif %}">
+                                    <p class="text-[10px] text-slate-500">A</p>
+                                    <p class="text-sm font-mono {% if pred.ensemble_away and pred.ensemble_away > 0.5 %}text-blue-600{% else %}text-slate-700{% endif %}">
+                                        {{ (pred.ensemble_away * 100)|round(0)|int if pred.ensemble_away else '---' }}%
+                                    </p>
+                                </div>
+                                {% else %}
+                                <div class="text-center">
+                                    <span class="text-xs text-slate-400">No prediction yet</span>
+                                </div>
+                                {% endif %}
+                            </div>
+
+                            <!-- Away Team -->
+                            <div class="flex-1 pl-4">
+                                <span class="text-sm font-semibold text-slate-800">{{ f.away_team }}</span>
+                            </div>
+
+                            <!-- Arrow -->
+                            <div class="w-8 text-right">
+                                <svg class="w-4 h-4 text-slate-400 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                                </svg>
+                            </div>
+                        </div>
+                    </a>
+                    {% endfor %}
+                    {% else %}
+                    <div class="px-6 py-8 text-center">
+                        <p class="text-slate-400 text-sm">No upcoming fixtures for {{ ld.config.name }}</p>
+                        <p class="text-slate-400 text-xs mt-1">Hit "Refresh Everything" to load fixtures.</p>
+                    </div>
+                    {% endif %}
+                </div>
             </div>
+            {% endfor %}
         </div>
 
         <!-- Right Sidebar -->
         <div class="space-y-6">
-            <!-- Value Bets Panel — CLICKABLE -->
+            <!-- Value Bets Panel — ALL leagues grouped -->
             <div class="glass rounded-xl overflow-hidden glow-green">
                 <div class="px-5 py-4 border-b border-slate-200">
                     <h3 class="text-sm font-semibold text-green-700 uppercase tracking-wider">Value Bets</h3>
-                    <p class="text-xs text-slate-500">Our model says the bookmaker has it wrong. Click for details.</p>
+                    <p class="text-xs text-slate-500">{{ total_value_bets }} active flags across all leagues. Click for details.</p>
                 </div>
                 <div class="divide-y divide-slate-200">
-                    {% if value_bets %}
-                    {% for vb in value_bets %}
-                    <a href="/match/{{ league }}/{{ vb.home_team|replace(' ', '_') }}/{{ vb.away_team|replace(' ', '_') }}"
+                    {% set has_any_vb = [] %}
+                    {% for code, ld in leagues_data.items() %}
+                    {% if ld.value_bets %}
+                    {% set colors = league_colors.get(code, {'badge': 'bg-slate-100 text-slate-700'}) %}
+                    {% for vb in ld.value_bets %}
+                    {% if has_any_vb.append(1) %}{% endif %}
+                    <a href="/match/{{ code }}/{{ vb.home_team|replace(' ', '_') }}/{{ vb.away_team|replace(' ', '_') }}"
                        class="block px-5 py-3 hover:bg-green-900/10 transition">
                         <div class="flex items-center justify-between">
                             <div>
-                                <p class="text-xs text-slate-500">{{ vb.home_team }} v {{ vb.away_team }}</p>
+                                <div class="flex items-center space-x-2 mb-0.5">
+                                    <span class="text-[9px] px-1.5 py-0.5 rounded font-medium {{ colors.badge }}">{{ code }}</span>
+                                    <p class="text-xs text-slate-500">{{ vb.home_team }} v {{ vb.away_team }}</p>
+                                </div>
                                 <p class="text-sm font-medium text-slate-800 mt-0.5">
                                     {{ vb.bet_type|replace('_', ' ')|title }}
                                     <span class="text-green-700 font-mono">@ {{ vb.best_odds }}</span>
@@ -186,14 +204,15 @@
                             <span class="text-slate-500">Model: {{ (vb.model_probability * 100)|round(1) }}% chance</span>
                             <span class="text-slate-500">Kelly: {{ vb.kelly_stake }}% of bankroll</span>
                         </div>
-                        <!-- Potential Winnings -->
                         <div class="mt-1.5 bg-slate-50 rounded px-3 py-1.5 flex items-center justify-between text-xs">
                             <span class="text-slate-500">$10 bet pays:</span>
                             <span class="text-green-700 font-mono font-bold">${{ (10 * vb.best_odds)|round(2) }} (profit ${{ ((vb.best_odds - 1) * 10)|round(2) }})</span>
                         </div>
                     </a>
                     {% endfor %}
-                    {% else %}
+                    {% endif %}
+                    {% endfor %}
+                    {% if not has_any_vb %}
                     <div class="px-5 py-8 text-center text-slate-400 text-sm">
                         No value bets found yet.<br>
                         <span class="text-xs">Load odds data to find edges.</span>
@@ -202,18 +221,18 @@
                 </div>
             </div>
 
-            <!-- Data Refresh — simplified with explanation -->
+            <!-- Data Refresh -->
             <div class="glass rounded-xl p-5">
                 <div class="flex items-center justify-between mb-3">
                     <h3 class="text-sm font-semibold text-slate-500 uppercase tracking-wider">Refresh Data</h3>
-                    <span class="text-[10px] text-slate-400">Pulls latest from APIs</span>
+                    <span class="text-[10px] text-slate-400">All leagues at once</span>
                 </div>
-                <p class="text-[11px] text-slate-400 mb-3">Hit this once before each gameweek to get fresh fixtures, odds, and predictions.</p>
+                <p class="text-[11px] text-slate-400 mb-3">Hit this once before each gameweek to get fresh fixtures, odds, and predictions for all leagues.</p>
                 <div class="space-y-2">
                     <button onclick="refreshData('all')"
                             class="w-full px-4 py-3 rounded-lg bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-sm text-white transition flex items-center justify-between">
                         <span>Refresh Everything</span>
-                        <span class="text-xs text-blue-200 font-mono">Fixtures + Odds + Data</span>
+                        <span class="text-xs text-blue-200 font-mono">All Leagues</span>
                     </button>
                 </div>
                 <details class="mt-3">
@@ -239,41 +258,62 @@
                 <div id="refresh-status" class="mt-3 text-xs text-slate-400 font-mono hidden"></div>
             </div>
 
-            <!-- League Standings Mini -->
+            <!-- Standings — collapsible per league -->
             <div class="glass rounded-xl overflow-hidden">
                 <div class="px-5 py-4 border-b border-slate-200">
                     <h3 class="text-sm font-semibold text-slate-500 uppercase tracking-wider">Standings</h3>
                 </div>
-                <div class="max-h-80 overflow-y-auto">
-                    <table class="w-full text-xs">
-                        <thead class="text-slate-400 uppercase">
-                            <tr class="border-b border-slate-200">
-                                <th class="px-4 py-2 text-left">#</th>
-                                <th class="px-4 py-2 text-left">Team</th>
-                                <th class="px-4 py-2 text-center">P</th>
-                                <th class="px-4 py-2 text-center">GD</th>
-                                <th class="px-4 py-2 text-center">Pts</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-slate-100">
-                            {% for team in standings[:20] %}
-                            <tr class="hover:bg-slate-50">
-                                <td class="px-4 py-1.5 text-slate-500 font-mono">{{ team.position }}</td>
-                                <td class="px-4 py-1.5 text-slate-700 font-medium truncate max-w-[120px]">
-                                    {% if team.team_crest %}
-                                    <img src="{{ team.team_crest }}" class="w-4 h-4 inline mr-1" alt="">
-                                    {% endif %}
-                                    {{ team.team }}
-                                </td>
-                                <td class="px-4 py-1.5 text-center text-slate-500 font-mono">{{ team.played }}</td>
-                                <td class="px-4 py-1.5 text-center font-mono {% if team.goal_difference > 0 %}text-green-700{% elif team.goal_difference < 0 %}text-red-600{% else %}text-slate-500{% endif %}">
-                                    {{ team.goal_difference }}
-                                </td>
-                                <td class="px-4 py-1.5 text-center text-slate-800 font-bold font-mono">{{ team.points }}</td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
+                <div x-data="{ openStandings: '{{ (leagues_data.keys()|list)[0] if leagues_data else '' }}' }">
+                    {% for code, ld in leagues_data.items() %}
+                    {% set colors = league_colors.get(code, {'text': 'text-slate-700', 'bg': 'bg-slate-50', 'bar': 'bg-slate-500'}) %}
+                    <div class="border-b border-slate-100 last:border-b-0">
+                        <button @click="openStandings = openStandings === '{{ code }}' ? '' : '{{ code }}'"
+                                class="w-full px-5 py-3 flex items-center justify-between hover:bg-slate-50 transition text-left">
+                            <div class="flex items-center space-x-2">
+                                <div class="w-1 h-5 rounded-full {{ colors.bar }}"></div>
+                                <span class="text-sm font-semibold {{ colors.text }}">{{ ld.config.name }}</span>
+                            </div>
+                            <svg :class="openStandings === '{{ code }}' ? 'rotate-180' : ''" class="w-4 h-4 text-slate-400 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
+                            </svg>
+                        </button>
+                        <div x-show="openStandings === '{{ code }}'" x-cloak x-transition class="max-h-64 overflow-y-auto">
+                            {% if ld.standings %}
+                            <table class="w-full text-xs">
+                                <thead class="text-slate-400 uppercase">
+                                    <tr class="border-b border-slate-200">
+                                        <th class="px-4 py-2 text-left">#</th>
+                                        <th class="px-4 py-2 text-left">Team</th>
+                                        <th class="px-4 py-2 text-center">P</th>
+                                        <th class="px-4 py-2 text-center">GD</th>
+                                        <th class="px-4 py-2 text-center">Pts</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-100">
+                                    {% for team in ld.standings[:20] %}
+                                    <tr class="hover:bg-slate-50">
+                                        <td class="px-4 py-1.5 text-slate-500 font-mono">{{ team.position }}</td>
+                                        <td class="px-4 py-1.5 text-slate-700 font-medium truncate max-w-[120px]">
+                                            {% if team.team_crest %}
+                                            <img src="{{ team.team_crest }}" class="w-4 h-4 inline mr-1" alt="">
+                                            {% endif %}
+                                            {{ team.team }}
+                                        </td>
+                                        <td class="px-4 py-1.5 text-center text-slate-500 font-mono">{{ team.played }}</td>
+                                        <td class="px-4 py-1.5 text-center font-mono {% if team.goal_difference > 0 %}text-green-700{% elif team.goal_difference < 0 %}text-red-600{% else %}text-slate-500{% endif %}">
+                                            {{ team.goal_difference }}
+                                        </td>
+                                        <td class="px-4 py-1.5 text-center text-slate-800 font-bold font-mono">{{ team.points }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                            {% else %}
+                            <div class="px-5 py-4 text-xs text-slate-400 text-center">No standings data yet</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
                 </div>
             </div>
 
@@ -292,7 +332,7 @@
                         "reddit": {"name": "Reddit Sentiment", "refresh": "2x/day"},
                         "newsapi": {"name": "News Sentiment", "refresh": "2x/day"}
                     } %}
-                    {% for source, info in data_status.items() if source != 'summary' %}
+                    {% for source, info in data_status.items() %}
                     <div class="flex items-center justify-between text-xs">
                         <div class="flex items-center space-x-2">
                             <span class="w-2 h-2 rounded-full {% if info.status == 'ok' %}bg-green-500{% elif info.last_updated == 'Never' %}bg-slate-300{% else %}bg-yellow-500{% endif %}"></span>
@@ -308,36 +348,16 @@
                         {% endif %}
                     </div>
                     {% endfor %}
-                    {% if data_status.summary %}
+                    <!-- Per-league counts -->
                     <div class="border-t border-slate-100 pt-2 mt-2">
-                        <div class="grid grid-cols-3 gap-2 text-[10px]">
-                            <div class="text-center">
-                                <p class="font-mono font-extrabold text-slate-700">{{ data_status.summary.matches }}</p>
-                                <p class="text-slate-400">Matches</p>
-                            </div>
-                            <div class="text-center">
-                                <p class="font-mono font-extrabold text-slate-700">{{ data_status.summary.odds_rows }}</p>
-                                <p class="text-slate-400">Odds</p>
-                            </div>
-                            <div class="text-center">
-                                <p class="font-mono font-extrabold text-slate-700">{{ data_status.summary.sentiment_teams }}</p>
-                                <p class="text-slate-400">Sentiment</p>
-                            </div>
-                            <div class="text-center">
-                                <p class="font-mono font-extrabold text-slate-700">{{ data_status.summary.team_ratings }}</p>
-                                <p class="text-slate-400">Ratings</p>
-                            </div>
-                            <div class="text-center">
-                                <p class="font-mono font-extrabold text-slate-700">{{ data_status.summary.referee_profiles }}</p>
-                                <p class="text-slate-400">Referees</p>
-                            </div>
-                            <div class="text-center">
-                                <p class="font-mono font-extrabold text-slate-700">{{ data_status.summary.h2h_records }}</p>
-                                <p class="text-slate-400">H2H</p>
-                            </div>
+                        {% for code, ld in leagues_data.items() %}
+                        {% set colors = league_colors.get(code, {'text': 'text-slate-700', 'badge': 'bg-slate-100 text-slate-700'}) %}
+                        <div class="flex items-center justify-between text-[10px] py-1">
+                            <span class="px-1.5 py-0.5 rounded font-medium {{ colors.badge }}">{{ code }}</span>
+                            <span class="text-slate-500">{{ ld.match_count }} matches &middot; {{ ld.fixtures|length }} fixtures &middot; {{ ld.value_bets|length }} value bets</span>
                         </div>
+                        {% endfor %}
                     </div>
-                    {% endif %}
                 </div>
             </div>
             {% endif %}
@@ -406,7 +426,7 @@
         <div class="mb-6">
             <h3 class="text-sm font-semibold text-green-400 uppercase tracking-wider mb-2">What's a Value Bet?</h3>
             <div class="bg-dark-700/50 rounded-lg p-4 text-sm text-gray-300 space-y-2">
-                <p>A value bet is when our model disagrees with the bookmaker — and we think the bookmaker is wrong.</p>
+                <p>A value bet is when our model disagrees with the bookmaker -- and we think the bookmaker is wrong.</p>
                 <div class="bg-dark-600 rounded p-3 my-3 text-xs">
                     <p><span class="text-white">Example:</span> Our model says Team X has a <span class="text-green-400">35% chance</span> to win.</p>
                     <p class="mt-1">The bookmaker offers odds of 4.00, which implies only a <span class="text-red-400">25% chance</span>.</p>
@@ -414,187 +434,29 @@
                 </div>
                 <p><span class="text-green-400 font-semibold">Edge %</span> = How wrong we think the bookmaker is</p>
                 <p><span class="text-green-400 font-semibold">Kelly %</span> = Suggested stake as % of your total bankroll</p>
-                <p class="text-gray-500 mt-2">Click any value bet to see the full match analysis.</p>
-
-                <div class="bg-dark-600/80 rounded-lg p-3 mt-3 text-xs space-y-1 border-l-2 border-emerald-500">
-                    <p class="text-white font-semibold mb-1">Real example from this dashboard:</p>
-                    <p class="text-gray-300">Tottenham vs Nottingham Forest</p>
-                    <p class="text-gray-400 mt-1">Our model says: Forest wins <span class="text-emerald-400">45%</span> of the time</p>
-                    <p class="text-gray-400">Bookmaker says: Forest wins <span class="text-red-400">34%</span> of the time (odds 2.96)</p>
-                    <p class="text-gray-400 mt-1">Forest actually wins 45% but you're getting paid as if they only win 34% — <span class="text-white">you're being overpaid.</span></p>
-                    <div class="mt-2 text-gray-400">
-                        <p>Over 100 bets like this at $10 each:</p>
-                        <p class="text-emerald-400 ml-2">Win ~45 times x $19.60 profit = $882</p>
-                        <p class="text-red-400 ml-2">Lose ~55 times x $10 lost = $550</p>
-                        <p class="text-white font-bold ml-2 mt-1">NET PROFIT: +$332 from $1,000 staked = +33% ROI</p>
-                    </div>
-                    <p class="text-gray-500 mt-2">You WILL lose individual bets. That's normal. The edge shows up over volume — like how a casino doesn't win every hand but always profits over thousands. <span class="text-white">You're the casino.</span></p>
-                    <p class="text-gray-500 mt-1">Our backtest proves it: across 348 historical value bets, the model returned <span class="text-emerald-400 font-bold">+31.3% ROI</span>.</p>
-                </div>
             </div>
         </div>
 
-        <!-- How Winnings Work -->
+        <!-- The Four Models -->
         <div class="mb-6">
-            <h3 class="text-sm font-semibold text-purple-400 uppercase tracking-wider mb-2">How Winnings Work</h3>
-            <div class="bg-dark-700/50 rounded-lg p-4 text-sm text-gray-300 space-y-2">
-                <p>Odds tell you what you'll get back if you win:</p>
-                <div class="bg-dark-600 rounded p-3 my-3 text-xs space-y-1">
-                    <p>Odds of <span class="text-white font-mono">1.85</span> = Bet $10, get back <span class="text-green-400 font-mono">$18.50</span> ($8.50 profit)</p>
-                    <p>Odds of <span class="text-white font-mono">3.00</span> = Bet $10, get back <span class="text-green-400 font-mono">$30.00</span> ($20.00 profit)</p>
-                    <p>Odds of <span class="text-white font-mono">6.80</span> = Bet $10, get back <span class="text-green-400 font-mono">$68.00</span> ($58.00 profit)</p>
-                </div>
-                <p class="text-gray-500">Higher odds = bigger payout but lower chance of winning. The model helps you find cases where the payout is bigger than the risk justifies.</p>
-            </div>
-        </div>
-
-        <!-- The Four Models — Detailed -->
-        <div class="mb-6">
-            <h3 class="text-sm font-semibold text-cyan-400 uppercase tracking-wider mb-2">The Four Models — How They Work</h3>
+            <h3 class="text-sm font-semibold text-cyan-400 uppercase tracking-wider mb-2">The Four Models</h3>
             <div class="bg-dark-700/50 rounded-lg p-4 text-sm text-gray-300 space-y-4">
                 <div>
                     <p class="text-white font-semibold">1. Poisson + Dixon-Coles (35% weight)</p>
-                    <p class="text-gray-400 text-xs mt-1">Calculates each team's <span class="text-white">Attack Strength</span> (goals scored vs league average) and <span class="text-white">Defence Weakness</span> (goals conceded vs league average). These produce an expected goals number for each side. Then uses the Poisson distribution to generate a 7x7 scoreline probability matrix (every possible score from 0-0 to 6-6). The Dixon-Coles correction adjusts for low-scoring games (0-0, 1-0, 1-1) which Poisson alone underestimates. Recent matches are weighted more heavily (time decay).</p>
-                    <p class="text-gray-500 text-[10px] mt-1">Outputs: H/D/A %, Over 2.5, BTTS, exact scoreline probabilities</p>
+                    <p class="text-gray-400 text-xs mt-1">Statistical goal-scoring model using attack/defence strengths and scoreline probability matrices.</p>
                 </div>
                 <div>
                     <p class="text-white font-semibold">2. XGBoost Machine Learning (30% weight)</p>
-                    <p class="text-gray-400 text-xs mt-1">Gradient-boosted decision tree trained on 1,000+ historical matches using <span class="text-white">20 features</span>:</p>
-                    <div class="mt-1 grid grid-cols-2 gap-x-4 text-[10px] text-gray-500">
-                        <p>Elo ratings (home & away)</p>
-                        <p>Attack & Defence strength (x4)</p>
-                        <p>Form last 5 games (both teams)</p>
-                        <p>Days rest since last match</p>
-                        <p>Head-to-head win rate</p>
-                        <p>Goals per game this season</p>
-                        <p>Referee avg goals/cards</p>
-                        <p>Month of season</p>
-                        <p>Sentiment scores</p>
-                        <p>Promoted team flag</p>
-                        <p>Streak length</p>
-                        <p>Pinnacle implied probability</p>
-                    </div>
-                    <p class="text-gray-500 text-[10px] mt-1">Finds non-linear patterns humans miss. Top feature: head-to-head history (33% importance).</p>
+                    <p class="text-gray-400 text-xs mt-1">Gradient-boosted trees trained on 20 features including Elo, form, H2H, referee stats, sentiment.</p>
                 </div>
                 <div>
                     <p class="text-white font-semibold">3. Elo Rating System (25% weight)</p>
-                    <p class="text-gray-400 text-xs mt-1">Chess-style rating. Every team starts at 1500. After each match, the winner gains points and loser drops — more points change hands in upsets. Includes <span class="text-white">home advantage bonus</span> (+50 Elo), <span class="text-white">goal difference multiplier</span> (bigger wins = bigger rating change), and <span class="text-white">season decay</span> (ratings regress toward average between seasons so promoted teams aren't stuck at 1500 forever). Tracks home/away Elo separately, plus last 5 and 10 game form, and streak detection.</p>
+                    <p class="text-gray-400 text-xs mt-1">Chess-style power ratings with home advantage, goal difference multiplier, and season decay.</p>
                 </div>
                 <div>
                     <p class="text-white font-semibold">4. Sentiment Analysis (10% weight)</p>
-                    <p class="text-gray-400 text-xs mt-1">Pulls posts from <span class="text-white">Reddit</span> (r/soccer, r/PremierLeague) and <span class="text-white">news headlines</span> (NewsAPI). Scores text using VADER sentiment analysis (-1 negative to +1 positive). Tracks mention volume (sudden spikes = something happened). Flags keywords: injury, sacked, ban, transfer, etc. Weakest signal by design — it's a tiebreaker, not a primary predictor.</p>
+                    <p class="text-gray-400 text-xs mt-1">Reddit + news sentiment scoring. Weak signal used as a tiebreaker.</p>
                 </div>
-            </div>
-        </div>
-
-        <!-- How the Ensemble Combines Them -->
-        <div class="mb-6">
-            <h3 class="text-sm font-semibold text-pink-400 uppercase tracking-wider mb-2">How the Ensemble Works</h3>
-            <div class="bg-dark-700/50 rounded-lg p-4 text-sm text-gray-300 space-y-2">
-                <p>Each model produces H/D/A probabilities. The ensemble takes a <span class="text-white">weighted average</span>:</p>
-                <div class="bg-dark-600 rounded p-3 my-2 text-xs font-mono text-center">
-                    Final = (Poisson x 0.35) + (XGBoost x 0.30) + (Elo x 0.25) + (Sentiment x 0.10)
-                </div>
-                <p class="text-xs text-gray-500">If a model fails (e.g., XGBoost can't load), the remaining models' weights are re-normalised so they still sum to 100%. The ensemble then compares its probabilities against bookmaker odds to find value.</p>
-                <p class="text-xs text-gray-500 mt-1"><span class="text-white">Kelly Criterion</span> sizes the bet: f = (bp - q) / b, where b = odds-1, p = model probability, q = 1-p. We use quarter-Kelly (x0.25) because full Kelly assumes perfect edge estimation, which we don't have.</p>
-            </div>
-        </div>
-
-        <!-- What Goes Into Each Prediction -->
-        <div class="mb-6">
-            <h3 class="text-sm font-semibold text-yellow-400 uppercase tracking-wider mb-2">Factors in Every Prediction</h3>
-            <div class="bg-dark-700/50 rounded-lg p-4 text-sm text-gray-300">
-                <div class="grid grid-cols-2 gap-2 text-xs">
-                    <div class="bg-dark-600 rounded p-2">
-                        <p class="text-white font-medium">Goals scored/conceded</p>
-                        <p class="text-gray-500">Home & away splits, weighted by recency</p>
-                    </div>
-                    <div class="bg-dark-600 rounded p-2">
-                        <p class="text-white font-medium">Team power rating (Elo)</p>
-                        <p class="text-gray-500">Updated after every match result</p>
-                    </div>
-                    <div class="bg-dark-600 rounded p-2">
-                        <p class="text-white font-medium">Recent form (last 5/10)</p>
-                        <p class="text-gray-500">Points, goals, wins/draws/losses</p>
-                    </div>
-                    <div class="bg-dark-600 rounded p-2">
-                        <p class="text-white font-medium">Head-to-head record</p>
-                        <p class="text-gray-500">Historical matchup results</p>
-                    </div>
-                    <div class="bg-dark-600 rounded p-2">
-                        <p class="text-white font-medium">Days rest / congestion</p>
-                        <p class="text-gray-500">Fatigue from recent matches</p>
-                    </div>
-                    <div class="bg-dark-600 rounded p-2">
-                        <p class="text-white font-medium">Referee tendencies</p>
-                        <p class="text-gray-500">Avg goals, cards, fouls per referee</p>
-                    </div>
-                    <div class="bg-dark-600 rounded p-2">
-                        <p class="text-white font-medium">Home/away advantage</p>
-                        <p class="text-gray-500">Separate ratings for each</p>
-                    </div>
-                    <div class="bg-dark-600 rounded p-2">
-                        <p class="text-white font-medium">Season timing</p>
-                        <p class="text-gray-500">December congestion, end-of-season</p>
-                    </div>
-                    <div class="bg-dark-600 rounded p-2">
-                        <p class="text-white font-medium">Streaks & momentum</p>
-                        <p class="text-gray-500">Winning/losing/unbeaten runs</p>
-                    </div>
-                    <div class="bg-dark-600 rounded p-2">
-                        <p class="text-white font-medium">Fan & media sentiment</p>
-                        <p class="text-gray-500">Reddit + news headline analysis</p>
-                    </div>
-                    <div class="bg-dark-600 rounded p-2 border-l-2 border-emerald-500">
-                        <p class="text-white font-medium">CLV Tracking</p>
-                        <p class="text-gray-500">Closing line value — did the market move our way?</p>
-                    </div>
-                    <div class="bg-dark-600 rounded p-2 border-l-2 border-emerald-500">
-                        <p class="text-white font-medium">Half-Time Patterns</p>
-                        <p class="text-gray-500">1st vs 2nd half goal splits, comeback &amp; collapse rates</p>
-                    </div>
-                    <div class="bg-dark-600 rounded p-2 border-l-2 border-emerald-500">
-                        <p class="text-white font-medium">Goal Timing Weights</p>
-                        <p class="text-gray-500">When in the match goals are scored matters</p>
-                    </div>
-                    <div class="bg-dark-600 rounded p-2 border-l-2 border-emerald-500">
-                        <p class="text-white font-medium">Promoted Team Boost</p>
-                        <p class="text-gray-500">Elo adjustment for newly promoted sides</p>
-                    </div>
-                    <div class="bg-dark-600 rounded p-2 border-l-2 border-emerald-500">
-                        <p class="text-white font-medium">Fixture Congestion</p>
-                        <p class="text-gray-500">Games in last 14/30 days — fatigue factor</p>
-                    </div>
-                    <div class="bg-dark-600 rounded p-2 border-l-2 border-emerald-500">
-                        <p class="text-white font-medium">Market Movement</p>
-                        <p class="text-gray-500">Opening vs closing odds drift direction</p>
-                    </div>
-                    <div class="bg-dark-600 rounded p-2 border-l-2 border-emerald-500">
-                        <p class="text-white font-medium">Self-Diagnosis</p>
-                        <p class="text-gray-500">Rolling accuracy &amp; model health monitoring</p>
-                    </div>
-                    <div class="bg-dark-600 rounded p-2 border-l-2 border-emerald-500">
-                        <p class="text-white font-medium">Auto-Retrain</p>
-                        <p class="text-gray-500">Models retrain when performance degrades</p>
-                    </div>
-                    <div class="bg-dark-600 rounded p-2 border-l-2 border-emerald-500">
-                        <p class="text-white font-medium">Weight Optimization</p>
-                        <p class="text-gray-500">Ensemble weights tuned by backtested ROI</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Dashboard Pages -->
-        <div class="mb-6">
-            <h3 class="text-sm font-semibold text-yellow-400 uppercase tracking-wider mb-2">Dashboard Pages</h3>
-            <div class="bg-dark-700/50 rounded-lg p-4 text-sm text-gray-300 space-y-2">
-                <p><span class="text-white font-semibold">Command Center</span> — Home base. Upcoming matches, predictions, and value bets at a glance.</p>
-                <p><span class="text-white font-semibold">Match Detail</span> — Click any match. See all 4 models, scoreline chart, odds comparison, bet calculator, H2H, form.</p>
-                <p><span class="text-white font-semibold">Portfolio</span> — Track all your bets. Win rate, P&L, ROI, streak tracking — like a stock portfolio.</p>
-                <p><span class="text-white font-semibold">League View</span> — Full standings table plus Elo power rankings.</p>
-                <p><span class="text-white font-semibold">Sentiment</span> — What the internet thinks about each team. Reddit + News scored -1 to +1.</p>
-                <p><span class="text-white font-semibold">Performance</span> — Is the model any good? Accuracy, ROI, and calibration from backtesting 1,000+ matches.</p>
             </div>
         </div>
 
@@ -603,7 +465,7 @@
             <h3 class="text-sm font-semibold text-orange-400 uppercase tracking-wider mb-2">Your Weekly Workflow</h3>
             <div class="bg-dark-700/50 rounded-lg p-4 text-sm text-gray-300 space-y-2">
                 <p><span class="text-white font-mono">1.</span> Before each gameweek, hit <span class="text-blue-400">"Refresh Everything"</span></p>
-                <p><span class="text-white font-mono">2.</span> Check the <span class="text-green-400">Value Bets</span> panel — these are your best opportunities</p>
+                <p><span class="text-white font-mono">2.</span> Check the <span class="text-green-400">Value Bets</span> panel -- these are your best opportunities</p>
                 <p><span class="text-white font-mono">3.</span> Click into matches that interest you for the deep dive</p>
                 <p><span class="text-white font-mono">4.</span> Check if models agree (high confidence) or disagree (be cautious)</p>
                 <p><span class="text-white font-mono">5.</span> The Kelly % tells you how much to bet relative to your bankroll</p>
@@ -626,7 +488,6 @@ document.addEventListener('DOMContentLoaded', function() {
             } catch(e) {}
         }
     });
-    // Convert fixture dates
     document.querySelectorAll('.local-date').forEach(el => {
         const utc = el.dataset.utc;
         if (utc) {
@@ -636,7 +497,6 @@ document.addEventListener('DOMContentLoaded', function() {
             } catch(e) {}
         }
     });
-    // Convert fixture times
     document.querySelectorAll('.local-time-short').forEach(el => {
         const utc = el.dataset.utc;
         if (utc) {
@@ -651,13 +511,13 @@ document.addEventListener('DOMContentLoaded', function() {
 async function refreshData(action) {
     const status = document.getElementById('refresh-status');
     status.classList.remove('hidden');
-    status.innerHTML = `<span class="text-amber-600">Refreshing ${action}...</span><br><span class="text-slate-400 text-[10px]">Some sources may be rate-limited (1x/day). They'll refresh on your next daily window.</span>`;
+    status.innerHTML = `<span class="text-amber-600">Refreshing ${action} for all leagues...</span><br><span class="text-slate-400 text-[10px]">Some sources may be rate-limited. They'll refresh on your next daily window.</span>`;
 
     try {
         const res = await fetch('/api/refresh-data', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ action: action, league: '{{ league }}' })
+            body: JSON.stringify({ action: action })
         });
         const data = await res.json();
         let details = [];
