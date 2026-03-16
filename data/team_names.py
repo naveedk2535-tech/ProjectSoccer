@@ -79,6 +79,7 @@ NAME_MAP = {
     "CA Osasuna": "Osasuna",
     "RCD Mallorca": "Mallorca",
     "Deportivo Alavés": "Alaves",
+    "Alavés": "Alaves",
     "Rayo Vallecano de Madrid": "Rayo Vallecano",
     "Rayo Vallecano": "Rayo Vallecano",
     "RC Celta de Vigo": "Celta Vigo",
@@ -124,6 +125,8 @@ NAME_MAP = {
     "Holstein Kiel": "Holstein Kiel",
     "Borussia Mönchengladbach": "M'gladbach",
     "Bor. Mönchengladbach": "M'gladbach",
+    "Borussia Monchengladbach": "M'gladbach",
+    "1. FC Heidenheim": "Heidenheim",
     # Serie A
     "FC Internazionale Milano": "Inter",
     "AC Milan": "AC Milan",
