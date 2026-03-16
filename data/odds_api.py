@@ -101,9 +101,10 @@ def _save_odds_to_db(events, league_code):
             for market in bookmaker.get("markets", []):
                 if market["key"] == "h2h":
                     for outcome in market.get("outcomes", []):
-                        if outcome["name"] == home_team:
+                        outcome_name = standardise(outcome["name"])
+                        if outcome_name == home_team:
                             odds_row["home_odds"] = outcome["price"]
-                        elif outcome["name"] == away_team:
+                        elif outcome_name == away_team:
                             odds_row["away_odds"] = outcome["price"]
                         elif outcome["name"] == "Draw":
                             odds_row["draw_odds"] = outcome["price"]
