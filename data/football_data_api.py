@@ -9,6 +9,7 @@ import requests
 
 import config
 from data.rate_limiter import can_call, record_call, check_cache, save_cache
+from data.team_names import standardise
 from database import db
 
 logger = logging.getLogger(__name__)
@@ -72,8 +73,8 @@ def get_upcoming_fixtures(league_code="PL", days_ahead=14):
             "match_date": m.get("utcDate"),
             "matchday": m.get("matchday"),
             "status": m.get("status"),
-            "home_team": m.get("homeTeam", {}).get("name", ""),
-            "away_team": m.get("awayTeam", {}).get("name", ""),
+            "home_team": standardise(m.get("homeTeam", {}).get("name", "")),
+            "away_team": standardise(m.get("awayTeam", {}).get("name", "")),
             "referee": (m.get("referees") or [{}])[0].get("name") if m.get("referees") else None,
             "venue": m.get("venue"),
         }
@@ -103,7 +104,7 @@ def get_standings(league_code="PL"):
             for entry in table.get("table", []):
                 team = {
                     "position": entry.get("position"),
-                    "team": entry.get("team", {}).get("name", ""),
+                    "team": standardise(entry.get("team", {}).get("name", "")),
                     "team_crest": entry.get("team", {}).get("crest", ""),
                     "played": entry.get("playedGames"),
                     "won": entry.get("won"),

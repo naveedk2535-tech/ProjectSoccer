@@ -9,6 +9,7 @@ import requests
 
 import config
 from data.rate_limiter import can_call, record_call, check_cache, save_cache
+from data.team_names import standardise
 from database import db
 
 logger = logging.getLogger(__name__)
@@ -73,8 +74,8 @@ def _save_odds_to_db(events, league_code):
     """Parse odds response and save to database."""
     rows = []
     for event in events:
-        home_team = event.get("home_team", "")
-        away_team = event.get("away_team", "")
+        home_team = standardise(event.get("home_team", ""))
+        away_team = standardise(event.get("away_team", ""))
         match_date = event.get("commence_time", "")[:10]
 
         for bookmaker in event.get("bookmakers", []):
@@ -85,6 +86,15 @@ def _save_odds_to_db(events, league_code):
                 "home_team": home_team,
                 "away_team": away_team,
                 "bookmaker": bookie_name,
+                "home_odds": None,
+                "draw_odds": None,
+                "away_odds": None,
+                "over25_odds": None,
+                "under25_odds": None,
+                "home_implied": None,
+                "draw_implied": None,
+                "away_implied": None,
+                "margin": None,
                 "fetched_at": datetime.utcnow().isoformat(),
             }
 

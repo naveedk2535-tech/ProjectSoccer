@@ -11,6 +11,7 @@ import requests
 
 import config
 from data.rate_limiter import can_call, record_call, check_cache, save_cache
+from data.team_names import standardise
 from database import db
 
 logger = logging.getLogger(__name__)
@@ -89,7 +90,7 @@ def standardise_team_name(name):
     """Standardise team name to consistent format."""
     if pd.isna(name):
         return name
-    return TEAM_NAME_MAP.get(name.strip(), name.strip())
+    return standardise(name)
 
 
 def parse_date(date_str):
