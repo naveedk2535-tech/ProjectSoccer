@@ -31,9 +31,7 @@ def fetch_team_news(team, league="PL"):
     if cached:
         return cached
 
-    if not can_call("newsapi"):
-        logger.warning("Rate limit reached for NewsAPI")
-        return None
+    # Rate limiting handled at bulk level in fetch_all_teams()
 
     from_date = (datetime.utcnow() - timedelta(days=7)).strftime("%Y-%m-%d")
 
@@ -50,7 +48,7 @@ def fetch_team_news(team, league="PL"):
             },
             timeout=15
         )
-        record_call("newsapi", f"team_news/{team}", response.status_code)
+        # rate limiting handled at bulk level
 
         if response.status_code != 200:
             logger.error("NewsAPI error %d for %s", response.status_code, team)
@@ -97,7 +95,12 @@ def fetch_team_news(team, league="PL"):
 
 
 def fetch_all_teams(league="PL"):
-    """Fetch news sentiment for all PL teams."""
+    """Fetch news sentiment for all teams in a league. Counts as 1 API call."""
+    if not can_call("newsapi"):
+        logger.warning("Rate limit reached for NewsAPI bulk pull")
+        return {}
+    record_call("newsapi", f"bulk_pull/{league}")
+
     from data.reddit_client import TEAM_SEARCH_TERMS
 
     results = {}

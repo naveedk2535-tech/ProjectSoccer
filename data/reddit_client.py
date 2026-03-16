@@ -93,10 +93,7 @@ def fetch_team_sentiment(team, league="PL"):
     if cached:
         return cached
 
-    if not can_call("reddit"):
-        logger.warning("Rate limit reached for Reddit API")
-        return None
-
+    # Rate limiting is handled at the bulk level in fetch_all_teams()
     reddit = _get_praw()
     if not reddit:
         return None
@@ -119,7 +116,7 @@ def fetch_team_sentiment(team, league="PL"):
                     for comment in post.comments[:5]:
                         texts.append(comment.body[:300])
 
-        record_call("reddit", f"team_sentiment/{team}")
+        # rate limiting handled at bulk level
     except Exception as e:
         logger.error("Reddit fetch failed for %s: %s", team, e)
         return None
@@ -139,7 +136,11 @@ def fetch_team_sentiment(team, league="PL"):
 
 
 def fetch_all_teams(league="PL"):
-    """Fetch sentiment for all teams in a league."""
+    """Fetch sentiment for all teams in a league. Counts as 1 API call."""
+    if not can_call("reddit"):
+        logger.warning("Rate limit reached for Reddit bulk pull")
+        return {}
+    record_call("reddit", f"bulk_pull/{league}")
     results = {}
     for team in TEAM_SEARCH_TERMS:
         sent = fetch_team_sentiment(team, league)
