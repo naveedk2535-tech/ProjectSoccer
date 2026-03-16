@@ -1,0 +1,251 @@
+{% extends "base.html" %}
+{% block title %}Bet Portfolio{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <div class="flex items-center justify-between">
+        <div>
+            <h1 class="text-2xl font-bold text-white">Bet Portfolio</h1>
+            <p class="text-sm text-gray-500">Track all your bets like a stock portfolio</p>
+        </div>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
+        <div class="glass rounded-xl p-4 stat-card">
+            <p class="text-[10px] text-gray-500 uppercase">Total Bets</p>
+            <p class="text-2xl font-bold text-white font-mono mt-1">{{ summary.total_bets }}</p>
+        </div>
+        <div class="glass rounded-xl p-4 stat-card">
+            <p class="text-[10px] text-gray-500 uppercase">Pending</p>
+            <p class="text-2xl font-bold text-yellow-400 font-mono mt-1">{{ summary.pending_count }}</p>
+        </div>
+        <div class="glass rounded-xl p-4 stat-card">
+            <p class="text-[10px] text-gray-500 uppercase">Win Rate</p>
+            <p class="text-2xl font-bold font-mono mt-1 {% if summary.win_rate > 50 %}text-green-400{% elif summary.win_rate > 0 %}text-yellow-400{% else %}text-gray-400{% endif %}">{{ summary.win_rate }}%</p>
+        </div>
+        <div class="glass rounded-xl p-4 stat-card">
+            <p class="text-[10px] text-gray-500 uppercase">Won / Lost</p>
+            <p class="text-2xl font-bold font-mono mt-1">
+                <span class="text-green-400">{{ summary.won_count }}</span>
+                <span class="text-gray-600">/</span>
+                <span class="text-red-400">{{ summary.lost_count }}</span>
+            </p>
+        </div>
+        <div class="glass rounded-xl p-4 stat-card">
+            <p class="text-[10px] text-gray-500 uppercase">Total Staked</p>
+            <p class="text-xl font-bold text-white font-mono mt-1">${{ summary.total_staked }}</p>
+        </div>
+        <div class="glass rounded-xl p-4 stat-card">
+            <p class="text-[10px] text-gray-500 uppercase">Total P&L</p>
+            <p class="text-xl font-bold font-mono mt-1 {% if summary.total_profit > 0 %}text-green-400{% elif summary.total_profit < 0 %}text-red-400{% else %}text-gray-400{% endif %}">
+                {{ '%+.2f'|format(summary.total_profit) }}
+            </p>
+        </div>
+        <div class="glass rounded-xl p-4 stat-card">
+            <p class="text-[10px] text-gray-500 uppercase">ROI</p>
+            <p class="text-xl font-bold font-mono mt-1 {% if summary.roi > 0 %}text-green-400{% elif summary.roi < 0 %}text-red-400{% else %}text-gray-400{% endif %}">
+                {{ '%+.1f'|format(summary.roi) }}%
+            </p>
+        </div>
+        <div class="glass rounded-xl p-4 stat-card">
+            <p class="text-[10px] text-gray-500 uppercase">Win Streak</p>
+            <p class="text-2xl font-bold text-cyan-400 font-mono mt-1">{{ summary.current_streak }}</p>
+        </div>
+    </div>
+
+    <!-- Extra Stats Row -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div class="glass rounded-xl p-4">
+            <p class="text-[10px] text-gray-500 uppercase">Avg Stake</p>
+            <p class="text-lg font-bold text-white font-mono mt-1">${{ summary.avg_stake }}</p>
+        </div>
+        <div class="glass rounded-xl p-4">
+            <p class="text-[10px] text-gray-500 uppercase">Avg Odds</p>
+            <p class="text-lg font-bold text-white font-mono mt-1">{{ summary.avg_odds }}</p>
+        </div>
+        <div class="glass rounded-xl p-4">
+            <p class="text-[10px] text-gray-500 uppercase">Best Win</p>
+            <p class="text-lg font-bold text-green-400 font-mono mt-1">+${{ summary.best_win }}</p>
+        </div>
+        <div class="glass rounded-xl p-4">
+            <p class="text-[10px] text-gray-500 uppercase">Worst Loss</p>
+            <p class="text-lg font-bold text-red-400 font-mono mt-1">${{ summary.worst_loss }}</p>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Pending Bets -->
+        <div class="lg:col-span-2 glass rounded-xl overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-800">
+                <h2 class="text-sm font-semibold text-yellow-400 uppercase tracking-wider">Pending Bets</h2>
+                <p class="text-xs text-gray-500">Waiting for results</p>
+            </div>
+            <div class="divide-y divide-gray-800/50">
+                {% for bet in pending %}
+                <div class="px-6 py-4" x-data="{ settling: false }">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <a href="/match/{{ bet.league }}/{{ bet.home_team|replace(' ', '_') }}/{{ bet.away_team|replace(' ', '_') }}"
+                               class="text-sm text-gray-300 hover:text-white transition">
+                                {{ bet.home_team }} v {{ bet.away_team }}
+                            </a>
+                            <p class="text-xs text-gray-500 mt-0.5">{{ bet.match_date }} | {{ bet.bet_type|replace('_',' ')|title }}</p>
+                        </div>
+                        <div class="text-right">
+                            <p class="text-white font-mono font-bold">${{ bet.stake }} @ {{ bet.odds }}</p>
+                            <p class="text-xs text-green-400 font-mono">Pays ${{ (bet.stake * bet.odds)|round(2) }}</p>
+                        </div>
+                    </div>
+                    <!-- Settle buttons -->
+                    <div class="mt-3 flex items-center space-x-2">
+                        <button onclick="settleBet({{ bet.id }}, 'won')"
+                                class="px-3 py-1.5 rounded bg-green-600/20 hover:bg-green-600/40 text-green-400 text-xs font-medium transition">
+                            Won (+${{ ((bet.odds - 1) * bet.stake)|round(2) }})
+                        </button>
+                        <button onclick="settleBet({{ bet.id }}, 'lost')"
+                                class="px-3 py-1.5 rounded bg-red-600/20 hover:bg-red-600/40 text-red-400 text-xs font-medium transition">
+                            Lost (-${{ bet.stake }})
+                        </button>
+                        <button onclick="settleBet({{ bet.id }}, 'void')"
+                                class="px-3 py-1.5 rounded bg-gray-600/20 hover:bg-gray-600/40 text-gray-400 text-xs font-medium transition">
+                            Void
+                        </button>
+                        <button onclick="deleteBet({{ bet.id }})"
+                                class="ml-auto px-2 py-1.5 rounded hover:bg-red-900/30 text-gray-600 hover:text-red-400 text-xs transition">
+                            Delete
+                        </button>
+                    </div>
+                    {% if bet.bookmaker %}
+                    <p class="text-[10px] text-gray-600 mt-2">{{ bet.bookmaker }} | Model: {{ (bet.model_probability * 100)|round(1) if bet.model_probability else '—' }}% | Edge: {{ bet.edge_percent if bet.edge_percent else '—' }}%</p>
+                    {% endif %}
+                </div>
+                {% else %}
+                <div class="px-6 py-12 text-center text-gray-600">
+                    <p class="text-sm">No pending bets</p>
+                    <p class="text-xs mt-1">Place bets from any match detail page</p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- P&L Chart Area -->
+        <div class="glass rounded-xl p-5">
+            <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">Profit & Loss</h3>
+            {% if summary.settled_count > 0 %}
+            <div class="space-y-3">
+                <!-- Visual P&L bar -->
+                <div class="text-center">
+                    <p class="text-3xl font-bold font-mono {% if summary.total_profit > 0 %}text-green-400{% elif summary.total_profit < 0 %}text-red-400{% else %}text-gray-400{% endif %}">
+                        {{ '%+.2f'|format(summary.total_profit) }}
+                    </p>
+                    <p class="text-xs text-gray-500 mt-1">Total P&L</p>
+                </div>
+                <!-- Win/Loss ratio bar -->
+                <div class="mt-4">
+                    <div class="flex items-center justify-between text-xs text-gray-500 mb-1">
+                        <span>{{ summary.won_count }} Won</span>
+                        <span>{{ summary.lost_count }} Lost</span>
+                    </div>
+                    <div class="h-4 bg-dark-600 rounded-full overflow-hidden flex">
+                        {% if summary.settled_count > 0 %}
+                        <div class="h-full bg-green-500 rounded-l-full" style="width: {{ (summary.won_count / summary.settled_count * 100)|round(0)|int }}%"></div>
+                        <div class="h-full bg-red-500 rounded-r-full" style="width: {{ (summary.lost_count / summary.settled_count * 100)|round(0)|int }}%"></div>
+                        {% endif %}
+                    </div>
+                </div>
+                <!-- ROI gauge -->
+                <div class="mt-4 text-center">
+                    <p class="text-xs text-gray-500">Return on Investment</p>
+                    <p class="text-2xl font-bold font-mono mt-1 {% if summary.roi > 0 %}text-green-400{% elif summary.roi < 0 %}text-red-400{% else %}text-gray-400{% endif %}">
+                        {{ '%+.1f'|format(summary.roi) }}%
+                    </p>
+                </div>
+            </div>
+            {% else %}
+            <div class="text-center text-gray-600 py-8">
+                <p class="text-sm">No settled bets yet</p>
+                <p class="text-xs mt-1">Settle bets to see your P&L</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Bet History -->
+    <div class="glass rounded-xl overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-800">
+            <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider">Bet History</h2>
+        </div>
+        <table class="w-full text-xs">
+            <thead>
+                <tr class="border-b border-gray-800 text-gray-500 uppercase">
+                    <th class="px-4 py-3 text-left">Date</th>
+                    <th class="px-4 py-3 text-left">Match</th>
+                    <th class="px-4 py-3 text-left">Bet</th>
+                    <th class="px-4 py-3 text-center">Stake</th>
+                    <th class="px-4 py-3 text-center">Odds</th>
+                    <th class="px-4 py-3 text-center">Status</th>
+                    <th class="px-4 py-3 text-right">P&L</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-800/30">
+                {% for bet in bets %}
+                <tr class="hover:bg-dark-700/50">
+                    <td class="px-4 py-2.5 text-gray-500 font-mono">{{ bet.match_date }}</td>
+                    <td class="px-4 py-2.5 text-gray-300">
+                        <a href="/match/{{ bet.league }}/{{ bet.home_team|replace(' ', '_') }}/{{ bet.away_team|replace(' ', '_') }}"
+                           class="hover:text-white transition">
+                            {{ bet.home_team }} v {{ bet.away_team }}
+                        </a>
+                    </td>
+                    <td class="px-4 py-2.5 text-gray-400">{{ bet.bet_type|replace('_',' ')|title }}</td>
+                    <td class="px-4 py-2.5 text-center text-white font-mono">${{ bet.stake }}</td>
+                    <td class="px-4 py-2.5 text-center text-gray-300 font-mono">{{ bet.odds }}</td>
+                    <td class="px-4 py-2.5 text-center">
+                        <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold
+                            {% if bet.status == 'won' %}bg-green-900/40 text-green-400
+                            {% elif bet.status == 'lost' %}bg-red-900/40 text-red-400
+                            {% elif bet.status == 'void' %}bg-gray-700 text-gray-400
+                            {% else %}bg-yellow-900/30 text-yellow-400{% endif %}">
+                            {{ bet.status|upper }}
+                        </span>
+                    </td>
+                    <td class="px-4 py-2.5 text-right font-mono font-bold
+                        {% if bet.profit_loss and bet.profit_loss > 0 %}text-green-400
+                        {% elif bet.profit_loss and bet.profit_loss < 0 %}text-red-400
+                        {% else %}text-gray-500{% endif %}">
+                        {% if bet.status != 'pending' %}{{ '%+.2f'|format(bet.profit_loss) }}{% else %}—{% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="7" class="px-6 py-12 text-center text-gray-600">
+                        No bets tracked yet. Place your first bet from any match detail page.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+async function settleBet(betId, status) {
+    if (!confirm(`Mark this bet as ${status.toUpperCase()}?`)) return;
+    const res = await fetch(`/api/bets/${betId}/settle`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ status })
+    });
+    if (res.ok) location.reload();
+    else alert('Error settling bet');
+}
+
+async function deleteBet(betId) {
+    if (!confirm('Delete this bet?')) return;
+    const res = await fetch(`/api/bets/${betId}`, { method: 'DELETE' });
+    if (res.ok) location.reload();
+    else alert('Error deleting bet');
+}
+</script>
+{% endblock %}

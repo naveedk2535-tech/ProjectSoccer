@@ -64,6 +64,96 @@
         </div>
     </div>
 
+    <!-- Bet Calculator -->
+    <div class="glass rounded-xl p-6" x-data="betCalc()">
+        <div class="flex items-center justify-between mb-4">
+            <div>
+                <h3 class="text-sm font-semibold text-white uppercase tracking-wider">Bet Calculator</h3>
+                <p class="text-xs text-gray-500">Enter your stake to see potential returns</p>
+            </div>
+            <div class="flex items-center space-x-2">
+                <span class="text-xs text-gray-500">Stake: $</span>
+                <input type="number" x-model="stake" min="1" step="1" value="10"
+                       class="w-20 px-3 py-1.5 rounded-lg bg-dark-700 border border-gray-700 text-white font-mono text-sm text-center focus:border-blue-500 focus:outline-none">
+            </div>
+        </div>
+
+        <div class="grid grid-cols-3 gap-4">
+            {% if prediction %}
+            <!-- Home Win -->
+            <div class="bg-dark-700/50 rounded-xl p-4 text-center border border-transparent hover:border-green-800/50 transition cursor-pointer"
+                 @click="selectedBet='home_win'; selectedOdds={{ prediction.implied_odds.home or 0 }}; selectedProb={{ prediction.home_win }}">
+                <p class="text-xs text-gray-500 uppercase mb-1">{{ home_team }} Win</p>
+                <p class="text-lg font-bold font-mono text-green-400">{{ (prediction.home_win * 100)|round(0)|int }}%</p>
+                <p class="text-xs text-gray-500 font-mono mt-1">Odds: {{ prediction.implied_odds.home }}</p>
+                <div class="mt-2 bg-dark-600 rounded px-3 py-2">
+                    <p class="text-[10px] text-gray-500">You win</p>
+                    <p class="text-lg font-bold text-green-400 font-mono">
+                        $<span x-text="(({{ prediction.implied_odds.home or 0 }} - 1) * stake).toFixed(2)"></span>
+                    </p>
+                    <p class="text-[10px] text-gray-500 mt-0.5">
+                        Total back: $<span x-text="({{ prediction.implied_odds.home or 0 }} * stake).toFixed(2)"></span>
+                    </p>
+                </div>
+            </div>
+
+            <!-- Draw -->
+            <div class="bg-dark-700/50 rounded-xl p-4 text-center border border-transparent hover:border-yellow-800/50 transition cursor-pointer"
+                 @click="selectedBet='draw'; selectedOdds={{ prediction.implied_odds.draw or 0 }}; selectedProb={{ prediction.draw }}">
+                <p class="text-xs text-gray-500 uppercase mb-1">Draw</p>
+                <p class="text-lg font-bold font-mono text-yellow-400">{{ (prediction.draw * 100)|round(0)|int }}%</p>
+                <p class="text-xs text-gray-500 font-mono mt-1">Odds: {{ prediction.implied_odds.draw }}</p>
+                <div class="mt-2 bg-dark-600 rounded px-3 py-2">
+                    <p class="text-[10px] text-gray-500">You win</p>
+                    <p class="text-lg font-bold text-yellow-400 font-mono">
+                        $<span x-text="(({{ prediction.implied_odds.draw or 0 }} - 1) * stake).toFixed(2)"></span>
+                    </p>
+                    <p class="text-[10px] text-gray-500 mt-0.5">
+                        Total back: $<span x-text="({{ prediction.implied_odds.draw or 0 }} * stake).toFixed(2)"></span>
+                    </p>
+                </div>
+            </div>
+
+            <!-- Away Win -->
+            <div class="bg-dark-700/50 rounded-xl p-4 text-center border border-transparent hover:border-blue-800/50 transition cursor-pointer"
+                 @click="selectedBet='away_win'; selectedOdds={{ prediction.implied_odds.away or 0 }}; selectedProb={{ prediction.away_win }}">
+                <p class="text-xs text-gray-500 uppercase mb-1">{{ away_team }} Win</p>
+                <p class="text-lg font-bold font-mono text-blue-400">{{ (prediction.away_win * 100)|round(0)|int }}%</p>
+                <p class="text-xs text-gray-500 font-mono mt-1">Odds: {{ prediction.implied_odds.away }}</p>
+                <div class="mt-2 bg-dark-600 rounded px-3 py-2">
+                    <p class="text-[10px] text-gray-500">You win</p>
+                    <p class="text-lg font-bold text-blue-400 font-mono">
+                        $<span x-text="(({{ prediction.implied_odds.away or 0 }} - 1) * stake).toFixed(2)"></span>
+                    </p>
+                    <p class="text-[10px] text-gray-500 mt-0.5">
+                        Total back: $<span x-text="({{ prediction.implied_odds.away or 0 }} * stake).toFixed(2)"></span>
+                    </p>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Track Bet Button (appears after clicking an outcome) -->
+        <div x-show="selectedBet" x-cloak class="mt-4 bg-dark-700/30 rounded-xl p-4 border border-gray-800">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm text-white">
+                        Track: <span class="font-semibold" x-text="selectedBet.replace('_',' ').replace(/\b\w/g, l => l.toUpperCase())"></span>
+                        @ <span class="text-green-400 font-mono" x-text="selectedOdds.toFixed(2)"></span>
+                    </p>
+                    <p class="text-xs text-gray-500">
+                        Stake: $<span x-text="stake"></span> |
+                        Win: $<span class="text-green-400" x-text="((selectedOdds - 1) * stake).toFixed(2)"></span> |
+                        Lose: $<span class="text-red-400" x-text="stake"></span>
+                    </p>
+                </div>
+                <button @click="trackBet()" class="px-4 py-2 rounded-lg bg-gradient-to-r from-green-600 to-green-500 hover:from-green-500 hover:to-green-400 text-white text-sm font-medium transition">
+                    Add to Portfolio
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Main Grid -->
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <!-- Model Breakdown (2 cols) -->
@@ -390,4 +480,38 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 {% endif %}
+
+<script>
+function betCalc() {
+    return {
+        stake: 10,
+        selectedBet: null,
+        selectedOdds: 0,
+        selectedProb: 0,
+        async trackBet() {
+            const res = await fetch('/api/bets', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    league: '{{ league }}',
+                    match_date: '{{ (predictions[0].fixture.match_date[:10] if predictions else "") if predictions is defined else "" }}',
+                    home_team: '{{ home_team }}',
+                    away_team: '{{ away_team }}',
+                    bet_type: this.selectedBet,
+                    stake: this.stake,
+                    odds: this.selectedOdds,
+                    model_probability: this.selectedProb,
+                    bookmaker: 'Model Odds',
+                })
+            });
+            if (res.ok) {
+                alert('Bet added to portfolio!');
+                this.selectedBet = null;
+            } else {
+                alert('Error tracking bet');
+            }
+        }
+    }
+}
+</script>
 {% endblock %}

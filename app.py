@@ -285,7 +285,132 @@ def performance_view():
     )
 
 
+@app.route("/portfolio")
+def portfolio_view():
+    """Bet tracking portfolio — like a stock portfolio."""
+    league = request.args.get("league", "PL")
+    league_config = config.LEAGUES.get(league, config.LEAGUES["PL"])
+
+    # All bets
+    all_bets = db.fetch_all(
+        "SELECT * FROM user_bets ORDER BY placed_at DESC"
+    )
+
+    # Summary stats
+    total_bets = len(all_bets)
+    pending = [b for b in all_bets if b["status"] == "pending"]
+    settled = [b for b in all_bets if b["status"] in ("won", "lost")]
+    won = [b for b in all_bets if b["status"] == "won"]
+    lost = [b for b in all_bets if b["status"] == "lost"]
+
+    total_staked = sum(b["stake"] for b in settled) if settled else 0
+    total_profit = sum(b["profit_loss"] for b in settled) if settled else 0
+    total_payout = sum(b["payout"] for b in settled) if settled else 0
+    win_rate = (len(won) / len(settled) * 100) if settled else 0
+    roi = (total_profit / total_staked * 100) if total_staked > 0 else 0
+    avg_odds = sum(b["odds"] for b in all_bets) / len(all_bets) if all_bets else 0
+    avg_stake = sum(b["stake"] for b in all_bets) / len(all_bets) if all_bets else 0
+    best_win = max((b["profit_loss"] for b in won), default=0)
+    worst_loss = min((b["profit_loss"] for b in lost), default=0)
+    current_streak = 0
+    if settled:
+        for b in sorted(settled, key=lambda x: x["placed_at"], reverse=True):
+            if b["status"] == "won":
+                current_streak += 1
+            else:
+                break
+
+    summary = {
+        "total_bets": total_bets,
+        "pending_count": len(pending),
+        "settled_count": len(settled),
+        "won_count": len(won),
+        "lost_count": len(lost),
+        "win_rate": round(win_rate, 1),
+        "total_staked": round(total_staked, 2),
+        "total_profit": round(total_profit, 2),
+        "total_payout": round(total_payout, 2),
+        "roi": round(roi, 1),
+        "avg_odds": round(avg_odds, 2),
+        "avg_stake": round(avg_stake, 2),
+        "best_win": round(best_win, 2),
+        "worst_loss": round(worst_loss, 2),
+        "current_streak": current_streak,
+        "bankroll_change": round(total_profit, 2),
+    }
+
+    return render_template("portfolio.html",
+        league=league,
+        league_config=league_config,
+        leagues=config.LEAGUES,
+        bets=all_bets,
+        pending=pending,
+        summary=summary,
+    )
+
+
 # --- API Routes ---
+
+@app.route("/api/bets", methods=["POST"])
+def api_place_bet():
+    """Place a new tracked bet."""
+    data = request.json
+    if not data:
+        return jsonify({"error": "No data provided"}), 400
+
+    required = ["league", "match_date", "home_team", "away_team", "bet_type", "stake", "odds"]
+    for field in required:
+        if field not in data:
+            return jsonify({"error": f"Missing field: {field}"}), 400
+
+    db.execute(
+        """INSERT INTO user_bets
+           (league, match_date, home_team, away_team, bet_type, stake, odds,
+            bookmaker, model_probability, edge_percent, status, notes)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?)""",
+        [data["league"], data["match_date"], data["home_team"], data["away_team"],
+         data["bet_type"], float(data["stake"]), float(data["odds"]),
+         data.get("bookmaker", ""), data.get("model_probability"),
+         data.get("edge_percent"), data.get("notes", "")]
+    )
+    return jsonify({"status": "ok", "message": "Bet tracked"})
+
+
+@app.route("/api/bets/<int:bet_id>/settle", methods=["POST"])
+def api_settle_bet(bet_id):
+    """Settle a bet as won, lost, or void."""
+    data = request.json
+    if not data or "status" not in data:
+        return jsonify({"error": "Provide status: won, lost, or void"}), 400
+
+    status = data["status"]
+    bet = db.fetch_one("SELECT * FROM user_bets WHERE id = ?", [bet_id])
+    if not bet:
+        return jsonify({"error": "Bet not found"}), 404
+
+    if status == "won":
+        payout = bet["stake"] * bet["odds"]
+        profit = payout - bet["stake"]
+    elif status == "lost":
+        payout = 0
+        profit = -bet["stake"]
+    else:  # void
+        payout = bet["stake"]
+        profit = 0
+
+    db.execute(
+        """UPDATE user_bets SET status = ?, payout = ?, profit_loss = ?,
+           settled_at = datetime('now') WHERE id = ?""",
+        [status, round(payout, 2), round(profit, 2), bet_id]
+    )
+    return jsonify({"status": "ok", "payout": round(payout, 2), "profit": round(profit, 2)})
+
+
+@app.route("/api/bets/<int:bet_id>", methods=["DELETE"])
+def api_delete_bet(bet_id):
+    """Delete a tracked bet."""
+    db.execute("DELETE FROM user_bets WHERE id = ?", [bet_id])
+    return jsonify({"status": "ok"})
 
 @app.route("/api/predict/<league>/<home_team>/<away_team>")
 def api_predict(league, home_team, away_team):

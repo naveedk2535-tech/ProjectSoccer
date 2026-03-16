@@ -351,25 +351,103 @@
             </div>
         </div>
 
-        <!-- The Four Models -->
+        <!-- The Four Models — Detailed -->
         <div class="mb-6">
-            <h3 class="text-sm font-semibold text-cyan-400 uppercase tracking-wider mb-2">The Four Models</h3>
-            <div class="bg-dark-700/50 rounded-lg p-4 text-sm text-gray-300 space-y-3">
+            <h3 class="text-sm font-semibold text-cyan-400 uppercase tracking-wider mb-2">The Four Models — How They Work</h3>
+            <div class="bg-dark-700/50 rounded-lg p-4 text-sm text-gray-300 space-y-4">
                 <div>
-                    <p class="text-white font-semibold">Poisson (35% weight)</p>
-                    <p class="text-gray-400 text-xs">Based on how many goals each team typically scores and concedes. Generates the scoreline probabilities.</p>
+                    <p class="text-white font-semibold">1. Poisson + Dixon-Coles (35% weight)</p>
+                    <p class="text-gray-400 text-xs mt-1">Calculates each team's <span class="text-white">Attack Strength</span> (goals scored vs league average) and <span class="text-white">Defence Weakness</span> (goals conceded vs league average). These produce an expected goals number for each side. Then uses the Poisson distribution to generate a 7x7 scoreline probability matrix (every possible score from 0-0 to 6-6). The Dixon-Coles correction adjusts for low-scoring games (0-0, 1-0, 1-1) which Poisson alone underestimates. Recent matches are weighted more heavily (time decay).</p>
+                    <p class="text-gray-500 text-[10px] mt-1">Outputs: H/D/A %, Over 2.5, BTTS, exact scoreline probabilities</p>
                 </div>
                 <div>
-                    <p class="text-white font-semibold">XGBoost (30% weight)</p>
-                    <p class="text-gray-400 text-xs">Machine learning model trained on 20 features: form, head-to-head record, days rest, referee tendencies, etc.</p>
+                    <p class="text-white font-semibold">2. XGBoost Machine Learning (30% weight)</p>
+                    <p class="text-gray-400 text-xs mt-1">Gradient-boosted decision tree trained on 1,000+ historical matches using <span class="text-white">20 features</span>:</p>
+                    <div class="mt-1 grid grid-cols-2 gap-x-4 text-[10px] text-gray-500">
+                        <p>Elo ratings (home & away)</p>
+                        <p>Attack & Defence strength (x4)</p>
+                        <p>Form last 5 games (both teams)</p>
+                        <p>Days rest since last match</p>
+                        <p>Head-to-head win rate</p>
+                        <p>Goals per game this season</p>
+                        <p>Referee avg goals/cards</p>
+                        <p>Month of season</p>
+                        <p>Sentiment scores</p>
+                        <p>Promoted team flag</p>
+                        <p>Streak length</p>
+                        <p>Pinnacle implied probability</p>
+                    </div>
+                    <p class="text-gray-500 text-[10px] mt-1">Finds non-linear patterns humans miss. Top feature: head-to-head history (33% importance).</p>
                 </div>
                 <div>
-                    <p class="text-white font-semibold">Elo (25% weight)</p>
-                    <p class="text-gray-400 text-xs">Chess-style rating system. Each team has a power rating that updates after every match. Higher = stronger team.</p>
+                    <p class="text-white font-semibold">3. Elo Rating System (25% weight)</p>
+                    <p class="text-gray-400 text-xs mt-1">Chess-style rating. Every team starts at 1500. After each match, the winner gains points and loser drops — more points change hands in upsets. Includes <span class="text-white">home advantage bonus</span> (+50 Elo), <span class="text-white">goal difference multiplier</span> (bigger wins = bigger rating change), and <span class="text-white">season decay</span> (ratings regress toward average between seasons so promoted teams aren't stuck at 1500 forever). Tracks home/away Elo separately, plus last 5 and 10 game form, and streak detection.</p>
                 </div>
                 <div>
-                    <p class="text-white font-semibold">Sentiment (10% weight)</p>
-                    <p class="text-gray-400 text-xs">What Reddit and the news are saying. Weakest signal, but catches things stats miss (injuries, managerial changes).</p>
+                    <p class="text-white font-semibold">4. Sentiment Analysis (10% weight)</p>
+                    <p class="text-gray-400 text-xs mt-1">Pulls posts from <span class="text-white">Reddit</span> (r/soccer, r/PremierLeague) and <span class="text-white">news headlines</span> (NewsAPI). Scores text using VADER sentiment analysis (-1 negative to +1 positive). Tracks mention volume (sudden spikes = something happened). Flags keywords: injury, sacked, ban, transfer, etc. Weakest signal by design — it's a tiebreaker, not a primary predictor.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- How the Ensemble Combines Them -->
+        <div class="mb-6">
+            <h3 class="text-sm font-semibold text-pink-400 uppercase tracking-wider mb-2">How the Ensemble Works</h3>
+            <div class="bg-dark-700/50 rounded-lg p-4 text-sm text-gray-300 space-y-2">
+                <p>Each model produces H/D/A probabilities. The ensemble takes a <span class="text-white">weighted average</span>:</p>
+                <div class="bg-dark-600 rounded p-3 my-2 text-xs font-mono text-center">
+                    Final = (Poisson x 0.35) + (XGBoost x 0.30) + (Elo x 0.25) + (Sentiment x 0.10)
+                </div>
+                <p class="text-xs text-gray-500">If a model fails (e.g., XGBoost can't load), the remaining models' weights are re-normalised so they still sum to 100%. The ensemble then compares its probabilities against bookmaker odds to find value.</p>
+                <p class="text-xs text-gray-500 mt-1"><span class="text-white">Kelly Criterion</span> sizes the bet: f = (bp - q) / b, where b = odds-1, p = model probability, q = 1-p. We use quarter-Kelly (x0.25) because full Kelly assumes perfect edge estimation, which we don't have.</p>
+            </div>
+        </div>
+
+        <!-- What Goes Into Each Prediction -->
+        <div class="mb-6">
+            <h3 class="text-sm font-semibold text-yellow-400 uppercase tracking-wider mb-2">Factors in Every Prediction</h3>
+            <div class="bg-dark-700/50 rounded-lg p-4 text-sm text-gray-300">
+                <div class="grid grid-cols-2 gap-2 text-xs">
+                    <div class="bg-dark-600 rounded p-2">
+                        <p class="text-white font-medium">Goals scored/conceded</p>
+                        <p class="text-gray-500">Home & away splits, weighted by recency</p>
+                    </div>
+                    <div class="bg-dark-600 rounded p-2">
+                        <p class="text-white font-medium">Team power rating (Elo)</p>
+                        <p class="text-gray-500">Updated after every match result</p>
+                    </div>
+                    <div class="bg-dark-600 rounded p-2">
+                        <p class="text-white font-medium">Recent form (last 5/10)</p>
+                        <p class="text-gray-500">Points, goals, wins/draws/losses</p>
+                    </div>
+                    <div class="bg-dark-600 rounded p-2">
+                        <p class="text-white font-medium">Head-to-head record</p>
+                        <p class="text-gray-500">Historical matchup results</p>
+                    </div>
+                    <div class="bg-dark-600 rounded p-2">
+                        <p class="text-white font-medium">Days rest / congestion</p>
+                        <p class="text-gray-500">Fatigue from recent matches</p>
+                    </div>
+                    <div class="bg-dark-600 rounded p-2">
+                        <p class="text-white font-medium">Referee tendencies</p>
+                        <p class="text-gray-500">Avg goals, cards, fouls per referee</p>
+                    </div>
+                    <div class="bg-dark-600 rounded p-2">
+                        <p class="text-white font-medium">Home/away advantage</p>
+                        <p class="text-gray-500">Separate ratings for each</p>
+                    </div>
+                    <div class="bg-dark-600 rounded p-2">
+                        <p class="text-white font-medium">Season timing</p>
+                        <p class="text-gray-500">December congestion, end-of-season</p>
+                    </div>
+                    <div class="bg-dark-600 rounded p-2">
+                        <p class="text-white font-medium">Streaks & momentum</p>
+                        <p class="text-gray-500">Winning/losing/unbeaten runs</p>
+                    </div>
+                    <div class="bg-dark-600 rounded p-2">
+                        <p class="text-white font-medium">Fan & media sentiment</p>
+                        <p class="text-gray-500">Reddit + news headline analysis</p>
+                    </div>
                 </div>
             </div>
         </div>
@@ -379,10 +457,11 @@
             <h3 class="text-sm font-semibold text-yellow-400 uppercase tracking-wider mb-2">Dashboard Pages</h3>
             <div class="bg-dark-700/50 rounded-lg p-4 text-sm text-gray-300 space-y-2">
                 <p><span class="text-white font-semibold">Command Center</span> — Home base. Upcoming matches, predictions, and value bets at a glance.</p>
-                <p><span class="text-white font-semibold">Match Detail</span> — Click any match. See all 4 models broken down, scoreline chart, odds comparison, H2H, form, sentiment.</p>
+                <p><span class="text-white font-semibold">Match Detail</span> — Click any match. See all 4 models, scoreline chart, odds comparison, bet calculator, H2H, form.</p>
+                <p><span class="text-white font-semibold">Portfolio</span> — Track all your bets. Win rate, P&L, ROI, streak tracking — like a stock portfolio.</p>
                 <p><span class="text-white font-semibold">League View</span> — Full standings table plus Elo power rankings.</p>
                 <p><span class="text-white font-semibold">Sentiment</span> — What the internet thinks about each team. Reddit + News scored -1 to +1.</p>
-                <p><span class="text-white font-semibold">Performance</span> — Is the model any good? Accuracy, ROI, and calibration from backtesting.</p>
+                <p><span class="text-white font-semibold">Performance</span> — Is the model any good? Accuracy, ROI, and calibration from backtesting 1,000+ matches.</p>
             </div>
         </div>
 

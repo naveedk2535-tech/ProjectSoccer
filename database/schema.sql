@@ -278,6 +278,30 @@ CREATE TABLE IF NOT EXISTS model_performance (
     UNIQUE(league, season, model_name)
 );
 
+-- User bet tracking (portfolio)
+CREATE TABLE IF NOT EXISTS user_bets (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    league TEXT NOT NULL,
+    match_date DATE NOT NULL,
+    home_team TEXT NOT NULL,
+    away_team TEXT NOT NULL,
+    bet_type TEXT NOT NULL,         -- home_win, draw, away_win, over25, under25, btts_yes, btts_no
+    stake REAL NOT NULL,
+    odds REAL NOT NULL,
+    bookmaker TEXT,
+    -- Model info at time of bet
+    model_probability REAL,
+    edge_percent REAL,
+    -- Result
+    status TEXT DEFAULT 'pending',  -- pending, won, lost, void
+    payout REAL DEFAULT 0,
+    profit_loss REAL DEFAULT 0,
+    -- Timestamps
+    placed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    settled_at TIMESTAMP,
+    notes TEXT
+);
+
 -- Indexes for performance
 CREATE INDEX IF NOT EXISTS idx_matches_league_date ON matches(league, match_date);
 CREATE INDEX IF NOT EXISTS idx_matches_teams ON matches(home_team, away_team);
