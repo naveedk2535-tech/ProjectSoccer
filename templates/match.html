@@ -523,10 +523,17 @@
                                     </svg>
                                 </div>
                                 <div>
-                                    <p class="text-[10px] text-amber-600 uppercase tracking-wider font-semibold">Referee</p>
+                                    <div class="flex items-center space-x-1.5">
+                                        <p class="text-[10px] text-amber-600 uppercase tracking-wider font-semibold">Referee</p>
+                                        {% if signals.referee.source and signals.referee.source != 'assigned' %}
+                                        <span class="text-[8px] px-1 py-0.5 rounded bg-amber-100 text-amber-600 font-medium">ESTIMATE</span>
+                                        {% else %}
+                                        <span class="text-[8px] px-1 py-0.5 rounded bg-green-100 text-green-700 font-medium">CONFIRMED</span>
+                                        {% endif %}
+                                    </div>
                                     <p class="text-sm font-bold text-slate-800">{{ signals.referee.name }}</p>
                                     {% if signals.referee.source and signals.referee.source != 'assigned' %}
-                                    <p class="text-[9px] text-slate-400">({{ signals.referee.source }})</p>
+                                    <p class="text-[9px] text-amber-500">Based on {{ signals.referee.source }}</p>
                                     {% endif %}
                                 </div>
                             </div>
