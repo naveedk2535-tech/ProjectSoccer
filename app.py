@@ -415,6 +415,9 @@ def portfolio_view():
 
     settings = load_settings()
     bankroll_start = settings.get("bankroll", 0)
+    # If bankroll not set, default to total amount wagered (including pending)
+    if bankroll_start == 0 and all_bets:
+        bankroll_start = round(sum(b["stake"] for b in all_bets), 2)
 
     return render_template("portfolio.html",
         league=league,

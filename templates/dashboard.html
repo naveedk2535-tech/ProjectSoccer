@@ -9,14 +9,14 @@
         <div class="glass rounded-xl p-4 stat-card col-span-2">
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-xs text-gray-500 uppercase tracking-wider">Active League</p>
-                    <p class="text-2xl font-bold text-white mt-1">{{ league_config.name }}</p>
-                    <p class="text-xs text-gray-400 mt-1">{{ league_config.country }}</p>
+                    <p class="text-xs text-slate-500 uppercase tracking-wider">Active League</p>
+                    <p class="text-2xl font-bold text-slate-800 mt-1">{{ league_config.name }}</p>
+                    <p class="text-xs text-slate-500 mt-1">{{ league_config.country }}</p>
                 </div>
                 <div class="flex items-center space-x-2">
                     <!-- How To Button -->
                     <button onclick="document.getElementById('howto-modal').classList.remove('hidden')"
-                            class="w-10 h-10 rounded-xl bg-dark-600 hover:bg-dark-500 flex items-center justify-center text-gray-400 hover:text-white transition" title="How to use this dashboard">
+                            class="w-10 h-10 rounded-xl bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 hover:text-slate-800 transition" title="How to use this dashboard">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
                         </svg>
@@ -30,30 +30,30 @@
 
         <!-- Matches in DB -->
         <div class="glass rounded-xl p-4 stat-card">
-            <p class="text-xs text-gray-500 uppercase tracking-wider">Historical Matches</p>
-            <p class="text-2xl font-bold text-white mt-1 font-mono">{{ match_count }}</p>
-            <p class="text-xs text-gray-400 mt-1">in database</p>
+            <p class="text-xs text-slate-500 uppercase tracking-wider">Historical Matches</p>
+            <p class="text-2xl font-bold text-slate-800 mt-1 font-mono">{{ match_count }}</p>
+            <p class="text-xs text-slate-500 mt-1">in database</p>
         </div>
 
         <!-- Upcoming -->
         <div class="glass rounded-xl p-4 stat-card">
-            <p class="text-xs text-gray-500 uppercase tracking-wider">Upcoming</p>
+            <p class="text-xs text-slate-500 uppercase tracking-wider">Upcoming</p>
             <p class="text-2xl font-bold text-cyan-400 mt-1 font-mono">{{ fixtures|length }}</p>
-            <p class="text-xs text-gray-400 mt-1">fixtures loaded</p>
+            <p class="text-xs text-slate-500 mt-1">fixtures loaded</p>
         </div>
 
         <!-- Value Bets -->
         <div class="glass rounded-xl p-4 stat-card">
-            <p class="text-xs text-gray-500 uppercase tracking-wider">Value Bets</p>
+            <p class="text-xs text-slate-500 uppercase tracking-wider">Value Bets</p>
             <p class="text-2xl font-bold text-green-400 mt-1 font-mono">{{ value_bets|length }}</p>
-            <p class="text-xs text-gray-400 mt-1">active flags</p>
+            <p class="text-xs text-slate-500 mt-1">active flags</p>
         </div>
 
         <!-- Model Status -->
         <div class="glass rounded-xl p-4 stat-card">
-            <p class="text-xs text-gray-500 uppercase tracking-wider">Models</p>
+            <p class="text-xs text-slate-500 uppercase tracking-wider">Models</p>
             <p class="text-2xl font-bold text-purple-400 mt-1 font-mono">4</p>
-            <p class="text-xs text-gray-400 mt-1">Poisson / Elo / XGB / Sent</p>
+            <p class="text-xs text-slate-500 mt-1">Poisson / Elo / XGB / Sent</p>
         </div>
     </div>
 
@@ -61,14 +61,14 @@
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <!-- Upcoming Fixtures + Predictions (2 cols) -->
         <div class="lg:col-span-2 glass rounded-xl overflow-hidden">
-            <div class="px-6 py-4 border-b border-gray-800 flex items-center justify-between">
+            <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
                 <div>
-                    <h2 class="text-lg font-semibold text-white">Upcoming Fixtures</h2>
-                    <p class="text-xs text-gray-500">Click any match for full breakdown</p>
+                    <h2 class="text-lg font-semibold text-slate-800">Upcoming Fixtures</h2>
+                    <p class="text-xs text-slate-500">Click any match for full breakdown</p>
                 </div>
             </div>
 
-            <div class="divide-y divide-gray-800/50">
+            <div class="divide-y divide-slate-200">
                 {% if fixtures %}
                 {% for f in fixtures %}
                 <a href="/match/{{ league }}/{{ f.home_team|replace(' ', '_') }}/{{ f.away_team|replace(' ', '_') }}"
@@ -76,52 +76,52 @@
                     <div class="flex items-center justify-between">
                         <!-- Date -->
                         <div class="w-20 text-center">
-                            <p class="text-xs text-gray-500">{{ f.match_date[:10] if f.match_date else '—' }}</p>
-                            <p class="text-xs text-gray-600 font-mono">{{ f.match_date[11:16] if f.match_date and f.match_date|length > 11 else '' }}</p>
+                            <p class="text-xs text-slate-500">{{ f.match_date[:10] if f.match_date else '—' }}</p>
+                            <p class="text-xs text-slate-400 font-mono">{{ f.match_date[11:16] if f.match_date and f.match_date|length > 11 else '' }}</p>
                         </div>
 
                         <!-- Home Team -->
                         <div class="flex-1 text-right pr-4">
-                            <span class="text-sm font-medium text-white">{{ f.home_team }}</span>
+                            <span class="text-sm font-medium text-slate-800">{{ f.home_team }}</span>
                         </div>
 
                         <!-- Prediction -->
                         {% set pred = predictions[loop.index0].prediction if predictions|length > loop.index0 else None %}
                         <div class="flex items-center space-x-2 w-48 justify-center">
                             {% if pred %}
-                            <div class="text-center px-2 py-1 rounded {% if pred.ensemble_home and pred.ensemble_home > pred.ensemble_draw and pred.ensemble_home > pred.ensemble_away %}bg-green-900/30 border border-green-800/50{% else %}bg-dark-700{% endif %}">
-                                <p class="text-[10px] text-gray-500">H</p>
-                                <p class="text-sm font-mono {% if pred.ensemble_home and pred.ensemble_home > 0.5 %}text-green-400{% else %}text-gray-300{% endif %}">
+                            <div class="text-center px-2 py-1 rounded {% if pred.ensemble_home and pred.ensemble_home > pred.ensemble_draw and pred.ensemble_home > pred.ensemble_away %}bg-green-900/30 border border-green-800/50{% else %}bg-slate-100{% endif %}">
+                                <p class="text-[10px] text-slate-500">H</p>
+                                <p class="text-sm font-mono {% if pred.ensemble_home and pred.ensemble_home > 0.5 %}text-green-400{% else %}text-slate-700{% endif %}">
                                     {{ (pred.ensemble_home * 100)|round(0)|int if pred.ensemble_home else '—' }}%
                                 </p>
                             </div>
-                            <div class="text-center px-2 py-1 rounded {% if pred.ensemble_draw and pred.ensemble_draw > pred.ensemble_home and pred.ensemble_draw > pred.ensemble_away %}bg-yellow-900/30 border border-yellow-800/50{% else %}bg-dark-700{% endif %}">
-                                <p class="text-[10px] text-gray-500">D</p>
-                                <p class="text-sm font-mono text-gray-300">
+                            <div class="text-center px-2 py-1 rounded {% if pred.ensemble_draw and pred.ensemble_draw > pred.ensemble_home and pred.ensemble_draw > pred.ensemble_away %}bg-yellow-900/30 border border-yellow-800/50{% else %}bg-slate-100{% endif %}">
+                                <p class="text-[10px] text-slate-500">D</p>
+                                <p class="text-sm font-mono text-slate-700">
                                     {{ (pred.ensemble_draw * 100)|round(0)|int if pred.ensemble_draw else '—' }}%
                                 </p>
                             </div>
-                            <div class="text-center px-2 py-1 rounded {% if pred.ensemble_away and pred.ensemble_away > pred.ensemble_home and pred.ensemble_away > pred.ensemble_draw %}bg-blue-900/30 border border-blue-800/50{% else %}bg-dark-700{% endif %}">
-                                <p class="text-[10px] text-gray-500">A</p>
-                                <p class="text-sm font-mono {% if pred.ensemble_away and pred.ensemble_away > 0.5 %}text-blue-400{% else %}text-gray-300{% endif %}">
+                            <div class="text-center px-2 py-1 rounded {% if pred.ensemble_away and pred.ensemble_away > pred.ensemble_home and pred.ensemble_away > pred.ensemble_draw %}bg-blue-900/30 border border-blue-800/50{% else %}bg-slate-100{% endif %}">
+                                <p class="text-[10px] text-slate-500">A</p>
+                                <p class="text-sm font-mono {% if pred.ensemble_away and pred.ensemble_away > 0.5 %}text-blue-400{% else %}text-slate-700{% endif %}">
                                     {{ (pred.ensemble_away * 100)|round(0)|int if pred.ensemble_away else '—' }}%
                                 </p>
                             </div>
                             {% else %}
                             <div class="text-center">
-                                <span class="text-xs text-gray-600">No prediction yet</span>
+                                <span class="text-xs text-slate-400">No prediction yet</span>
                             </div>
                             {% endif %}
                         </div>
 
                         <!-- Away Team -->
                         <div class="flex-1 pl-4">
-                            <span class="text-sm font-medium text-white">{{ f.away_team }}</span>
+                            <span class="text-sm font-medium text-slate-800">{{ f.away_team }}</span>
                         </div>
 
                         <!-- Arrow -->
                         <div class="w-8 text-right">
-                            <svg class="w-4 h-4 text-gray-600 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg class="w-4 h-4 text-slate-400 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
                             </svg>
                         </div>
@@ -130,7 +130,7 @@
                 {% endfor %}
                 {% else %}
                 <div class="px-6 py-12 text-center">
-                    <p class="text-gray-500">No upcoming fixtures loaded</p>
+                    <p class="text-slate-500">No upcoming fixtures loaded</p>
                     <button onclick="refreshData('fixtures')"
                             class="mt-4 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-sm transition">
                         Load Fixtures
@@ -144,41 +144,41 @@
         <div class="space-y-6">
             <!-- Value Bets Panel — CLICKABLE -->
             <div class="glass rounded-xl overflow-hidden glow-green">
-                <div class="px-5 py-4 border-b border-gray-800">
+                <div class="px-5 py-4 border-b border-slate-200">
                     <h3 class="text-sm font-semibold text-green-400 uppercase tracking-wider">Value Bets</h3>
-                    <p class="text-xs text-gray-500">Our model says the bookmaker has it wrong. Click for details.</p>
+                    <p class="text-xs text-slate-500">Our model says the bookmaker has it wrong. Click for details.</p>
                 </div>
-                <div class="divide-y divide-gray-800/50">
+                <div class="divide-y divide-slate-200">
                     {% if value_bets %}
                     {% for vb in value_bets %}
                     <a href="/match/{{ league }}/{{ vb.home_team|replace(' ', '_') }}/{{ vb.away_team|replace(' ', '_') }}"
                        class="block px-5 py-3 hover:bg-green-900/10 transition">
                         <div class="flex items-center justify-between">
                             <div>
-                                <p class="text-xs text-gray-400">{{ vb.home_team }} v {{ vb.away_team }}</p>
-                                <p class="text-sm font-medium text-white mt-0.5">
+                                <p class="text-xs text-slate-500">{{ vb.home_team }} v {{ vb.away_team }}</p>
+                                <p class="text-sm font-medium text-slate-800 mt-0.5">
                                     {{ vb.bet_type|replace('_', ' ')|title }}
                                     <span class="text-green-400 font-mono">@ {{ vb.best_odds }}</span>
                                 </p>
                             </div>
                             <div class="text-right">
                                 <p class="text-lg font-bold text-green-400 font-mono">+{{ vb.edge_percent }}%</p>
-                                <p class="text-[10px] text-gray-500">{{ vb.best_bookmaker }}</p>
+                                <p class="text-[10px] text-slate-500">{{ vb.best_bookmaker }}</p>
                             </div>
                         </div>
                         <div class="mt-2 flex items-center justify-between text-xs">
-                            <span class="text-gray-500">Model: {{ (vb.model_probability * 100)|round(1) }}% chance</span>
-                            <span class="text-gray-500">Kelly: {{ vb.kelly_stake }}% of bankroll</span>
+                            <span class="text-slate-500">Model: {{ (vb.model_probability * 100)|round(1) }}% chance</span>
+                            <span class="text-slate-500">Kelly: {{ vb.kelly_stake }}% of bankroll</span>
                         </div>
                         <!-- Potential Winnings -->
-                        <div class="mt-1.5 bg-dark-700/50 rounded px-3 py-1.5 flex items-center justify-between text-xs">
-                            <span class="text-gray-500">$10 bet pays:</span>
+                        <div class="mt-1.5 bg-slate-50 rounded px-3 py-1.5 flex items-center justify-between text-xs">
+                            <span class="text-slate-500">$10 bet pays:</span>
                             <span class="text-green-400 font-mono font-bold">${{ (10 * vb.best_odds)|round(2) }} (profit ${{ ((vb.best_odds - 1) * 10)|round(2) }})</span>
                         </div>
                     </a>
                     {% endfor %}
                     {% else %}
-                    <div class="px-5 py-8 text-center text-gray-600 text-sm">
+                    <div class="px-5 py-8 text-center text-slate-400 text-sm">
                         No value bets found yet.<br>
                         <span class="text-xs">Load odds data to find edges.</span>
                     </div>
@@ -189,10 +189,10 @@
             <!-- Data Refresh — simplified with explanation -->
             <div class="glass rounded-xl p-5">
                 <div class="flex items-center justify-between mb-3">
-                    <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider">Refresh Data</h3>
-                    <span class="text-[10px] text-gray-600">Pulls latest from APIs</span>
+                    <h3 class="text-sm font-semibold text-slate-500 uppercase tracking-wider">Refresh Data</h3>
+                    <span class="text-[10px] text-slate-400">Pulls latest from APIs</span>
                 </div>
-                <p class="text-[11px] text-gray-600 mb-3">Hit this once before each gameweek to get fresh fixtures, odds, and predictions.</p>
+                <p class="text-[11px] text-slate-400 mb-3">Hit this once before each gameweek to get fresh fixtures, odds, and predictions.</p>
                 <div class="space-y-2">
                     <button onclick="refreshData('all')"
                             class="w-full px-4 py-3 rounded-lg bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-sm text-white transition flex items-center justify-between">
@@ -201,37 +201,37 @@
                     </button>
                 </div>
                 <details class="mt-3">
-                    <summary class="text-xs text-gray-600 cursor-pointer hover:text-gray-400">Advanced: refresh individual sources</summary>
+                    <summary class="text-xs text-slate-400 cursor-pointer hover:text-slate-500">Advanced: refresh individual sources</summary>
                     <div class="mt-2 space-y-1.5">
                         <button onclick="refreshData('csv')"
-                                class="w-full px-3 py-2 rounded-lg bg-dark-600 hover:bg-dark-500 text-xs text-gray-400 text-left transition flex items-center justify-between">
+                                class="w-full px-3 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-xs text-slate-500 text-left transition flex items-center justify-between">
                             <span>Historical Results</span>
-                            <span class="text-gray-600 font-mono">weekly</span>
+                            <span class="text-slate-400 font-mono">weekly</span>
                         </button>
                         <button onclick="refreshData('fixtures')"
-                                class="w-full px-3 py-2 rounded-lg bg-dark-600 hover:bg-dark-500 text-xs text-gray-400 text-left transition flex items-center justify-between">
+                                class="w-full px-3 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-xs text-slate-500 text-left transition flex items-center justify-between">
                             <span>Upcoming Fixtures</span>
-                            <span class="text-gray-600 font-mono">2x/day</span>
+                            <span class="text-slate-400 font-mono">2x/day</span>
                         </button>
                         <button onclick="refreshData('odds')"
-                                class="w-full px-3 py-2 rounded-lg bg-dark-600 hover:bg-dark-500 text-xs text-gray-400 text-left transition flex items-center justify-between">
+                                class="w-full px-3 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-xs text-slate-500 text-left transition flex items-center justify-between">
                             <span>Bookmaker Odds</span>
-                            <span class="text-gray-600 font-mono">match day</span>
+                            <span class="text-slate-400 font-mono">match day</span>
                         </button>
                     </div>
                 </details>
-                <div id="refresh-status" class="mt-3 text-xs text-gray-600 font-mono hidden"></div>
+                <div id="refresh-status" class="mt-3 text-xs text-slate-400 font-mono hidden"></div>
             </div>
 
             <!-- League Standings Mini -->
             <div class="glass rounded-xl overflow-hidden">
-                <div class="px-5 py-4 border-b border-gray-800">
-                    <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider">Standings</h3>
+                <div class="px-5 py-4 border-b border-slate-200">
+                    <h3 class="text-sm font-semibold text-slate-500 uppercase tracking-wider">Standings</h3>
                 </div>
                 <div class="max-h-80 overflow-y-auto">
                     <table class="w-full text-xs">
-                        <thead class="text-gray-600 uppercase">
-                            <tr class="border-b border-gray-800/50">
+                        <thead class="text-slate-400 uppercase">
+                            <tr class="border-b border-slate-200">
                                 <th class="px-4 py-2 text-left">#</th>
                                 <th class="px-4 py-2 text-left">Team</th>
                                 <th class="px-4 py-2 text-center">P</th>
@@ -239,21 +239,21 @@
                                 <th class="px-4 py-2 text-center">Pts</th>
                             </tr>
                         </thead>
-                        <tbody class="divide-y divide-gray-800/30">
+                        <tbody class="divide-y divide-slate-100">
                             {% for team in standings[:20] %}
-                            <tr class="hover:bg-dark-700/50">
-                                <td class="px-4 py-1.5 text-gray-500 font-mono">{{ team.position }}</td>
-                                <td class="px-4 py-1.5 text-gray-300 font-medium truncate max-w-[120px]">
+                            <tr class="hover:bg-slate-50">
+                                <td class="px-4 py-1.5 text-slate-500 font-mono">{{ team.position }}</td>
+                                <td class="px-4 py-1.5 text-slate-700 font-medium truncate max-w-[120px]">
                                     {% if team.team_crest %}
                                     <img src="{{ team.team_crest }}" class="w-4 h-4 inline mr-1" alt="">
                                     {% endif %}
                                     {{ team.team }}
                                 </td>
-                                <td class="px-4 py-1.5 text-center text-gray-500 font-mono">{{ team.played }}</td>
-                                <td class="px-4 py-1.5 text-center font-mono {% if team.goal_difference > 0 %}text-green-400{% elif team.goal_difference < 0 %}text-red-400{% else %}text-gray-500{% endif %}">
+                                <td class="px-4 py-1.5 text-center text-slate-500 font-mono">{{ team.played }}</td>
+                                <td class="px-4 py-1.5 text-center font-mono {% if team.goal_difference > 0 %}text-green-400{% elif team.goal_difference < 0 %}text-red-400{% else %}text-slate-500{% endif %}">
                                     {{ team.goal_difference }}
                                 </td>
-                                <td class="px-4 py-1.5 text-center text-white font-bold font-mono">{{ team.points }}</td>
+                                <td class="px-4 py-1.5 text-center text-slate-800 font-bold font-mono">{{ team.points }}</td>
                             </tr>
                             {% endfor %}
                         </tbody>
@@ -263,18 +263,18 @@
 
             <!-- API Usage -->
             <div class="glass rounded-xl p-5">
-                <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">API Usage</h3>
+                <h3 class="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-3">API Usage</h3>
                 <div class="space-y-2" x-data="{ usage: {} }" x-init="fetch('/api/usage').then(r=>r.json()).then(d=>usage=d)">
                     <template x-for="(info, api) in usage" :key="api">
                         <div class="flex items-center justify-between text-xs">
-                            <span class="text-gray-500" x-text="api"></span>
+                            <span class="text-slate-500" x-text="api"></span>
                             <div class="flex items-center space-x-2">
-                                <div class="w-24 h-1.5 rounded-full bg-dark-600 overflow-hidden">
+                                <div class="w-24 h-1.5 rounded-full bg-slate-100 overflow-hidden">
                                     <div class="h-full rounded-full"
                                          :class="info.used/info.limit > 0.8 ? 'bg-red-500' : 'bg-green-500'"
                                          :style="`width: ${Math.min(100, (info.used/info.limit)*100)}%`"></div>
                                 </div>
-                                <span class="text-gray-400 font-mono" x-text="`${info.used}/${info.limit}`"></span>
+                                <span class="text-slate-500 font-mono" x-text="`${info.used}/${info.limit}`"></span>
                             </div>
                         </div>
                     </template>
@@ -286,8 +286,8 @@
 
 <!-- HOW TO MODAL -->
 <div id="howto-modal" class="hidden fixed inset-0 z-[100] flex items-center justify-center p-4" onclick="if(event.target===this)this.classList.add('hidden')">
-    <div class="absolute inset-0 bg-black/70 backdrop-blur-sm"></div>
-    <div class="relative glass rounded-2xl max-w-2xl w-full max-h-[85vh] overflow-y-auto p-8 border border-gray-700">
+    <div class="absolute inset-0 bg-black/50 backdrop-blur-sm"></div>
+    <div class="relative rounded-2xl max-w-2xl w-full max-h-[85vh] overflow-y-auto p-8 bg-slate-900 border border-gray-700">
         <button onclick="document.getElementById('howto-modal').classList.add('hidden')"
                 class="absolute top-4 right-4 w-8 h-8 rounded-lg bg-dark-600 hover:bg-dark-500 flex items-center justify-center text-gray-400 hover:text-white">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>

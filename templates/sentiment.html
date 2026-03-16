@@ -4,8 +4,8 @@
 {% block content %}
 <div class="space-y-6">
     <div>
-        <h1 class="text-2xl font-bold text-white">Sentiment Tracker</h1>
-        <p class="text-sm text-gray-500">Reddit + News sentiment analysis per team</p>
+        <h1 class="text-2xl font-bold text-slate-800">Sentiment Tracker</h1>
+        <p class="text-sm text-slate-500">Reddit + News sentiment analysis per team</p>
     </div>
 
     <!-- Sentiment Grid -->
@@ -13,11 +13,11 @@
         {% for team, sent in team_sentiments.items() %}
         <div class="glass rounded-xl p-5 stat-card">
             <div class="flex items-center justify-between mb-3">
-                <h3 class="text-sm font-medium text-white">{{ team }}</h3>
+                <h3 class="text-sm font-medium text-slate-800">{{ team }}</h3>
                 <span class="text-lg font-mono font-bold
                     {% if sent.combined_score and sent.combined_score > 0.1 %}text-green-400
                     {% elif sent.combined_score and sent.combined_score < -0.1 %}text-red-400
-                    {% else %}text-gray-400{% endif %}">
+                    {% else %}text-slate-500{% endif %}">
                     {% if sent.combined_score %}
                     {{ '%+.2f'|format(sent.combined_score) }}
                     {% else %}0.00{% endif %}
@@ -25,7 +25,7 @@
             </div>
 
             <!-- Sentiment gauge -->
-            <div class="h-2 bg-dark-600 rounded-full overflow-hidden mb-3">
+            <div class="h-2 bg-slate-100 rounded-full overflow-hidden mb-3">
                 {% set pct = ((sent.combined_score or 0) + 1) / 2 * 100 %}
                 <div class="h-full rounded-full
                     {% if (sent.combined_score or 0) > 0 %}bg-gradient-to-r from-yellow-500 to-green-500
@@ -34,21 +34,21 @@
             </div>
 
             <div class="grid grid-cols-2 gap-2 text-[10px]">
-                <div class="bg-dark-700/50 rounded p-2">
-                    <p class="text-gray-500">Reddit</p>
-                    <p class="text-gray-300 font-mono">{{ sent.reddit_score|round(2) if sent.reddit_score else '—' }}</p>
+                <div class="bg-slate-50 rounded p-2">
+                    <p class="text-slate-500">Reddit</p>
+                    <p class="text-slate-700 font-mono">{{ sent.reddit_score|round(2) if sent.reddit_score else '—' }}</p>
                 </div>
-                <div class="bg-dark-700/50 rounded p-2">
-                    <p class="text-gray-500">News</p>
-                    <p class="text-gray-300 font-mono">{{ sent.news_score|round(2) if sent.news_score else '—' }}</p>
+                <div class="bg-slate-50 rounded p-2">
+                    <p class="text-slate-500">News</p>
+                    <p class="text-slate-700 font-mono">{{ sent.news_score|round(2) if sent.news_score else '—' }}</p>
                 </div>
-                <div class="bg-dark-700/50 rounded p-2">
-                    <p class="text-gray-500">Volume</p>
-                    <p class="text-gray-300 font-mono">{{ sent.reddit_volume or 0 }}</p>
+                <div class="bg-slate-50 rounded p-2">
+                    <p class="text-slate-500">Volume</p>
+                    <p class="text-slate-700 font-mono">{{ sent.reddit_volume or 0 }}</p>
                 </div>
-                <div class="bg-dark-700/50 rounded p-2">
-                    <p class="text-gray-500">Trend</p>
-                    <p class="font-mono {% if sent.sentiment_trend and sent.sentiment_trend > 0 %}text-green-400{% elif sent.sentiment_trend and sent.sentiment_trend < 0 %}text-red-400{% else %}text-gray-400{% endif %}">
+                <div class="bg-slate-50 rounded p-2">
+                    <p class="text-slate-500">Trend</p>
+                    <p class="font-mono {% if sent.sentiment_trend and sent.sentiment_trend > 0 %}text-green-400{% elif sent.sentiment_trend and sent.sentiment_trend < 0 %}text-red-400{% else %}text-slate-500{% endif %}">
                         {% if sent.sentiment_trend %}{{ '%+.2f'|format(sent.sentiment_trend) }}{% else %}—{% endif %}
                     </p>
                 </div>
@@ -56,8 +56,8 @@
         </div>
         {% else %}
         <div class="col-span-full glass rounded-xl p-12 text-center">
-            <p class="text-gray-500">No sentiment data collected yet.</p>
-            <p class="text-gray-600 text-sm mt-2">Sentiment data is fetched daily from Reddit and NewsAPI.</p>
+            <p class="text-slate-500">No sentiment data collected yet.</p>
+            <p class="text-slate-400 text-sm mt-2">Sentiment data is fetched daily from Reddit and NewsAPI.</p>
         </div>
         {% endfor %}
     </div>

@@ -64,43 +64,43 @@
     <p class="text-[10px] text-teal-400 uppercase tracking-widest font-semibold mb-3">Performance Overview</p>
     <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
         <div class="glass rounded-xl p-4 stat-card">
-            <p class="text-[10px] text-gray-500 uppercase">Total Bets</p>
-            <p class="text-2xl font-bold text-white font-mono mt-1">{{ summary.total_bets }}</p>
+            <p class="text-[10px] text-slate-500 uppercase">Total Bets</p>
+            <p class="text-2xl font-bold text-slate-800 font-mono mt-1">{{ summary.total_bets }}</p>
         </div>
         <div class="glass rounded-xl p-4 stat-card">
-            <p class="text-[10px] text-gray-500 uppercase">Pending</p>
-            <p class="text-2xl font-bold text-white font-mono mt-1">{{ summary.pending_count }}</p>
+            <p class="text-[10px] text-slate-500 uppercase">Pending</p>
+            <p class="text-2xl font-bold text-slate-800 font-mono mt-1">{{ summary.pending_count }}</p>
         </div>
         <div class="glass rounded-xl p-4 stat-card">
-            <p class="text-[10px] text-gray-500 uppercase">Win Rate</p>
-            <p class="text-2xl font-bold font-mono mt-1 {% if summary.win_rate > 50 %}text-emerald-400{% elif summary.win_rate > 0 %}text-amber-400{% else %}text-gray-400{% endif %}">{{ summary.win_rate }}%</p>
+            <p class="text-[10px] text-slate-500 uppercase">Win Rate</p>
+            <p class="text-2xl font-bold font-mono mt-1 {% if summary.win_rate > 50 %}text-emerald-400{% elif summary.win_rate > 0 %}text-amber-400{% else %}text-slate-500{% endif %}">{{ summary.win_rate }}%</p>
         </div>
         <div class="glass rounded-xl p-4 stat-card">
-            <p class="text-[10px] text-gray-500 uppercase">Won / Lost</p>
+            <p class="text-[10px] text-slate-500 uppercase">Won / Lost</p>
             <p class="text-2xl font-bold font-mono mt-1">
                 <span class="text-emerald-400">{{ summary.won_count }}</span>
-                <span class="text-gray-600">/</span>
+                <span class="text-slate-400">/</span>
                 <span class="text-red-400">{{ summary.lost_count }}</span>
             </p>
         </div>
         <div class="glass rounded-xl p-4 stat-card">
-            <p class="text-[10px] text-gray-500 uppercase">Total Staked</p>
+            <p class="text-[10px] text-slate-500 uppercase">Total Staked</p>
             <p class="text-xl font-bold text-amber-400 font-mono mt-1">${{ summary.total_staked }}</p>
         </div>
         <div class="glass rounded-xl p-4 stat-card">
-            <p class="text-[10px] text-gray-500 uppercase">Total P&L</p>
-            <p class="text-xl font-bold font-mono mt-1 {% if summary.total_profit > 0 %}text-emerald-400{% elif summary.total_profit < 0 %}text-red-400{% else %}text-gray-400{% endif %}">
+            <p class="text-[10px] text-slate-500 uppercase">Total P&L</p>
+            <p class="text-xl font-bold font-mono mt-1 {% if summary.total_profit > 0 %}text-emerald-400{% elif summary.total_profit < 0 %}text-red-400{% else %}text-slate-500{% endif %}">
                 {{ '%+.2f'|format(summary.total_profit) }}
             </p>
         </div>
         <div class="glass rounded-xl p-4 stat-card">
-            <p class="text-[10px] text-gray-500 uppercase">ROI</p>
-            <p class="text-xl font-bold font-mono mt-1 {% if summary.roi > 0 %}text-emerald-400{% elif summary.roi < 0 %}text-red-400{% else %}text-gray-400{% endif %}">
+            <p class="text-[10px] text-slate-500 uppercase">ROI</p>
+            <p class="text-xl font-bold font-mono mt-1 {% if summary.roi > 0 %}text-emerald-400{% elif summary.roi < 0 %}text-red-400{% else %}text-slate-500{% endif %}">
                 {{ '%+.1f'|format(summary.roi) }}%
             </p>
         </div>
         <div class="glass rounded-xl p-4 stat-card">
-            <p class="text-[10px] text-gray-500 uppercase">Win Streak</p>
+            <p class="text-[10px] text-slate-500 uppercase">Win Streak</p>
             <p class="text-2xl font-bold text-cyan-400 font-mono mt-1">{{ summary.current_streak }}</p>
         </div>
     </div>
@@ -112,19 +112,19 @@
     <p class="text-[10px] text-amber-400 uppercase tracking-widest font-semibold mb-3">Betting Stats</p>
     <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
         <div class="glass rounded-xl p-4">
-            <p class="text-[10px] text-gray-500 uppercase">Avg Stake</p>
+            <p class="text-[10px] text-slate-500 uppercase">Avg Stake</p>
             <p class="text-lg font-bold text-amber-400 font-mono mt-1">${{ summary.avg_stake }}</p>
         </div>
         <div class="glass rounded-xl p-4">
-            <p class="text-[10px] text-gray-500 uppercase">Avg Odds</p>
-            <p class="text-lg font-bold text-white font-mono mt-1">{{ summary.avg_odds }}</p>
+            <p class="text-[10px] text-slate-500 uppercase">Avg Odds</p>
+            <p class="text-lg font-bold text-slate-800 font-mono mt-1">{{ summary.avg_odds }}</p>
         </div>
         <div class="glass rounded-xl p-4">
-            <p class="text-[10px] text-gray-500 uppercase">Best Win</p>
+            <p class="text-[10px] text-slate-500 uppercase">Best Win</p>
             <p class="text-lg font-bold text-emerald-400 font-mono mt-1">+${{ summary.best_win }}</p>
         </div>
         <div class="glass rounded-xl p-4">
-            <p class="text-[10px] text-gray-500 uppercase">Worst Loss</p>
+            <p class="text-[10px] text-slate-500 uppercase">Worst Loss</p>
             <p class="text-lg font-bold text-red-400 font-mono mt-1">${{ summary.worst_loss }}</p>
         </div>
     </div>
@@ -136,9 +136,9 @@
         <div class="lg:col-span-2 glass rounded-xl overflow-hidden">
             <div class="px-6 py-4 border-b border-amber-700/30 bg-amber-900/10">
                 <h2 class="text-sm font-semibold text-amber-400 uppercase tracking-wider">Pending Bets</h2>
-                <p class="text-xs text-gray-500">Waiting for results</p>
+                <p class="text-xs text-slate-500">Waiting for results</p>
             </div>
-            <div class="divide-y divide-gray-800/50">
+            <div class="divide-y divide-slate-200">
                 {% for bet in pending %}
                 <div class="px-6 py-4" x-data="{ editing: false, stake: {{ bet.stake }}, odds: {{ bet.odds }}, bookmaker: '{{ bet.bookmaker or '' }}', notes: '{{ bet.notes or '' }}' }">
                     <!-- Normal View -->
@@ -146,13 +146,13 @@
                         <div class="flex items-center justify-between">
                             <div>
                                 <a href="/match/{{ bet.league }}/{{ bet.home_team|replace(' ', '_') }}/{{ bet.away_team|replace(' ', '_') }}"
-                                   class="text-sm text-gray-300 hover:text-white transition">
+                                   class="text-sm text-slate-700 hover:text-slate-800 transition">
                                     {{ bet.home_team }} v {{ bet.away_team }}
                                 </a>
-                                <p class="text-xs text-gray-500 mt-0.5">{{ bet.match_date }} | {{ bet.bet_type|replace('_',' ')|title }}</p>
+                                <p class="text-xs text-slate-500 mt-0.5">{{ bet.match_date }} | {{ bet.bet_type|replace('_',' ')|title }}</p>
                             </div>
                             <div class="text-right">
-                                <p class="text-white font-mono font-bold">${{ bet.stake }} @ {{ bet.odds }}</p>
+                                <p class="text-slate-800 font-mono font-bold">${{ bet.stake }} @ {{ bet.odds }}</p>
                                 <p class="text-xs text-amber-400 font-mono">Pays ${{ (bet.stake * bet.odds)|round(2) }}</p>
                             </div>
                         </div>
@@ -166,22 +166,22 @@
                                 Lost (-${{ bet.stake }})
                             </button>
                             <button onclick="settleBet({{ bet.id }}, 'void')"
-                                    class="px-3 py-1.5 rounded bg-gray-600/20 hover:bg-gray-600/40 text-gray-400 text-xs font-medium transition">
+                                    class="px-3 py-1.5 rounded bg-gray-600/20 hover:bg-gray-600/40 text-slate-500 text-xs font-medium transition">
                                 Void
                             </button>
                             <div class="ml-auto flex items-center space-x-1">
                                 <button @click="editing = true"
-                                        class="px-2 py-1.5 rounded hover:bg-blue-900/30 text-gray-600 hover:text-blue-400 text-xs transition">
+                                        class="px-2 py-1.5 rounded hover:bg-blue-900/30 text-slate-400 hover:text-blue-400 text-xs transition">
                                     Edit
                                 </button>
                                 <button onclick="deleteBet({{ bet.id }})"
-                                        class="px-2 py-1.5 rounded hover:bg-red-900/30 text-gray-600 hover:text-red-400 text-xs transition">
+                                        class="px-2 py-1.5 rounded hover:bg-red-900/30 text-slate-400 hover:text-red-400 text-xs transition">
                                     Delete
                                 </button>
                             </div>
                         </div>
                         {% if bet.bookmaker or bet.notes %}
-                        <p class="text-[10px] text-gray-600 mt-2">
+                        <p class="text-[10px] text-slate-400 mt-2">
                             {% if bet.bookmaker %}{{ bet.bookmaker }}{% endif %}
                             {% if bet.model_probability %} | Model: {{ (bet.model_probability * 100)|round(1) }}%{% endif %}
                             {% if bet.edge_percent %} | Edge: {{ bet.edge_percent }}%{% endif %}
@@ -192,28 +192,28 @@
 
                     <!-- Edit View -->
                     <div x-show="editing" x-cloak class="space-y-3">
-                        <p class="text-sm text-white font-medium">{{ bet.home_team }} v {{ bet.away_team }} — {{ bet.bet_type|replace('_',' ')|title }}</p>
+                        <p class="text-sm text-slate-800 font-medium">{{ bet.home_team }} v {{ bet.away_team }} — {{ bet.bet_type|replace('_',' ')|title }}</p>
                         <div class="grid grid-cols-2 gap-3">
                             <div>
-                                <label class="text-[10px] text-gray-500 uppercase">Stake ($)</label>
+                                <label class="text-[10px] text-slate-500 uppercase">Stake ($)</label>
                                 <input type="number" x-model="stake" step="0.01"
-                                       class="w-full mt-1 px-3 py-2 rounded-lg bg-dark-900 border border-gray-700 text-white font-mono text-sm focus:border-emerald-500 focus:outline-none">
+                                       class="w-full mt-1 px-3 py-2 rounded-lg bg-white border border-slate-300 text-slate-800 font-mono text-sm focus:border-emerald-500 focus:outline-none">
                             </div>
                             <div>
-                                <label class="text-[10px] text-gray-500 uppercase">Odds</label>
+                                <label class="text-[10px] text-slate-500 uppercase">Odds</label>
                                 <input type="number" x-model="odds" step="0.01"
-                                       class="w-full mt-1 px-3 py-2 rounded-lg bg-dark-900 border border-gray-700 text-white font-mono text-sm focus:border-emerald-500 focus:outline-none">
+                                       class="w-full mt-1 px-3 py-2 rounded-lg bg-white border border-slate-300 text-slate-800 font-mono text-sm focus:border-emerald-500 focus:outline-none">
                             </div>
                         </div>
                         <div>
-                            <label class="text-[10px] text-gray-500 uppercase">Bookmaker</label>
+                            <label class="text-[10px] text-slate-500 uppercase">Bookmaker</label>
                             <input type="text" x-model="bookmaker"
-                                   class="w-full mt-1 px-3 py-2 rounded-lg bg-dark-900 border border-gray-700 text-white text-sm focus:border-emerald-500 focus:outline-none">
+                                   class="w-full mt-1 px-3 py-2 rounded-lg bg-white border border-slate-300 text-slate-800 text-sm focus:border-emerald-500 focus:outline-none">
                         </div>
                         <div>
-                            <label class="text-[10px] text-gray-500 uppercase">Notes</label>
+                            <label class="text-[10px] text-slate-500 uppercase">Notes</label>
                             <input type="text" x-model="notes"
-                                   class="w-full mt-1 px-3 py-2 rounded-lg bg-dark-900 border border-gray-700 text-white text-sm focus:border-emerald-500 focus:outline-none">
+                                   class="w-full mt-1 px-3 py-2 rounded-lg bg-white border border-slate-300 text-slate-800 text-sm focus:border-emerald-500 focus:outline-none">
                         </div>
                         <div class="flex items-center space-x-2">
                             <button @click="editBet({{ bet.id }}, stake, odds, bookmaker, notes); editing = false"
@@ -221,17 +221,17 @@
                                 Save Changes
                             </button>
                             <button @click="editing = false"
-                                    class="px-4 py-2 rounded-lg bg-dark-600 hover:bg-dark-500 text-gray-400 text-xs transition">
+                                    class="px-4 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-500 text-xs transition">
                                 Cancel
                             </button>
-                            <p class="text-xs text-gray-600 ml-auto">
+                            <p class="text-xs text-slate-400 ml-auto">
                                 Pays: $<span x-text="(stake * odds).toFixed(2)" class="text-amber-400 font-mono"></span>
                             </p>
                         </div>
                     </div>
                 </div>
                 {% else %}
-                <div class="px-6 py-12 text-center text-gray-600">
+                <div class="px-6 py-12 text-center text-slate-400">
                     <p class="text-sm">No pending bets</p>
                     <p class="text-xs mt-1">Place bets from any match detail page</p>
                 </div>
@@ -241,23 +241,23 @@
 
         <!-- P&L Chart Area -->
         <div class="glass rounded-xl p-5">
-            <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">Profit & Loss</h3>
+            <h3 class="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-4">Profit & Loss</h3>
             {% if summary.settled_count > 0 %}
             <div class="space-y-3">
                 <!-- Visual P&L bar -->
                 <div class="text-center">
-                    <p class="text-3xl font-bold font-mono {% if summary.total_profit > 0 %}text-emerald-400{% elif summary.total_profit < 0 %}text-red-400{% else %}text-gray-400{% endif %}">
+                    <p class="text-3xl font-bold font-mono {% if summary.total_profit > 0 %}text-emerald-400{% elif summary.total_profit < 0 %}text-red-400{% else %}text-slate-500{% endif %}">
                         {{ '%+.2f'|format(summary.total_profit) }}
                     </p>
-                    <p class="text-xs text-gray-500 mt-1">Total P&L</p>
+                    <p class="text-xs text-slate-500 mt-1">Total P&L</p>
                 </div>
                 <!-- Win/Loss ratio bar -->
                 <div class="mt-4">
-                    <div class="flex items-center justify-between text-xs text-gray-500 mb-1">
+                    <div class="flex items-center justify-between text-xs text-slate-500 mb-1">
                         <span>{{ summary.won_count }} Won</span>
                         <span>{{ summary.lost_count }} Lost</span>
                     </div>
-                    <div class="h-4 bg-dark-600 rounded-full overflow-hidden flex">
+                    <div class="h-4 bg-slate-100 rounded-full overflow-hidden flex">
                         {% if summary.settled_count > 0 %}
                         <div class="h-full bg-emerald-500 rounded-l-full" style="width: {{ (summary.won_count / summary.settled_count * 100)|round(0)|int }}%"></div>
                         <div class="h-full bg-red-500 rounded-r-full" style="width: {{ (summary.lost_count / summary.settled_count * 100)|round(0)|int }}%"></div>
@@ -265,17 +265,17 @@
                     </div>
                 </div>
                 <!-- Bankroll gauge -->
-                <div class="mt-4 bg-dark-700/50 rounded-lg p-3">
+                <div class="mt-4 bg-slate-50 rounded-lg p-3">
                     <div class="flex items-center justify-between text-xs mb-1">
-                        <span class="text-gray-500">Bankroll</span>
+                        <span class="text-slate-500">Bankroll</span>
                         <span class="font-mono {% if bankroll_current >= bankroll_start %}text-emerald-400{% else %}text-red-400{% endif %}">${{ '%.2f'|format(bankroll_current) }}</span>
                     </div>
-                    <div class="h-3 bg-dark-600 rounded-full overflow-hidden">
+                    <div class="h-3 bg-slate-100 rounded-full overflow-hidden">
                         {% set bankroll_pct = (bankroll_current / (bankroll_start * 2) * 100) %}
                         <div class="h-full rounded-full {% if bankroll_current >= bankroll_start %}bg-gradient-to-r from-emerald-600 to-emerald-400{% else %}bg-gradient-to-r from-red-600 to-red-400{% endif %}"
                              style="width: {{ bankroll_pct|round(0)|int }}%"></div>
                     </div>
-                    <div class="flex items-center justify-between text-[10px] text-gray-600 mt-1">
+                    <div class="flex items-center justify-between text-[10px] text-slate-400 mt-1">
                         <span>$0</span>
                         <span>Start: ${{ '%.0f'|format(bankroll_start) }}</span>
                         <span>${{ '%.0f'|format(bankroll_start * 2) }}</span>
@@ -283,14 +283,14 @@
                 </div>
                 <!-- ROI gauge -->
                 <div class="mt-4 text-center">
-                    <p class="text-xs text-gray-500">Return on Investment</p>
-                    <p class="text-2xl font-bold font-mono mt-1 {% if summary.roi > 0 %}text-emerald-400{% elif summary.roi < 0 %}text-red-400{% else %}text-gray-400{% endif %}">
+                    <p class="text-xs text-slate-500">Return on Investment</p>
+                    <p class="text-2xl font-bold font-mono mt-1 {% if summary.roi > 0 %}text-emerald-400{% elif summary.roi < 0 %}text-red-400{% else %}text-slate-500{% endif %}">
                         {{ '%+.1f'|format(summary.roi) }}%
                     </p>
                 </div>
             </div>
             {% else %}
-            <div class="text-center text-gray-600 py-8">
+            <div class="text-center text-slate-400 py-8">
                 <p class="text-sm">No settled bets yet</p>
                 <p class="text-xs mt-1">Settle bets to see your P&L</p>
             </div>
@@ -300,12 +300,12 @@
 
     <!-- Bet History -->
     <div class="glass rounded-xl overflow-hidden">
-        <div class="px-6 py-4 border-b border-gray-800">
-            <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider">Bet History</h2>
+        <div class="px-6 py-4 border-b border-slate-200">
+            <h2 class="text-sm font-semibold text-slate-500 uppercase tracking-wider">Bet History</h2>
         </div>
         <table class="w-full text-xs">
             <thead>
-                <tr class="border-b border-gray-800 text-gray-500 uppercase">
+                <tr class="border-b border-slate-200 text-slate-500 uppercase">
                     <th class="px-4 py-3 text-left">Date</th>
                     <th class="px-4 py-3 text-left">Match</th>
                     <th class="px-4 py-3 text-left">Bet</th>
@@ -317,22 +317,22 @@
             </thead>
             <tbody>
                 {% for bet in bets %}
-                <tr class="hover:bg-dark-700/50 border-b border-gray-800/30 {% if loop.index is odd %}bg-dark-800/20{% endif %}">
-                    <td class="px-4 py-2.5 text-gray-500 font-mono">{{ bet.match_date }}</td>
-                    <td class="px-4 py-2.5 text-gray-300">
+                <tr class="hover:bg-slate-50 border-b border-slate-100 {% if loop.index is odd %}bg-slate-50/50{% endif %}">
+                    <td class="px-4 py-2.5 text-slate-500 font-mono">{{ bet.match_date }}</td>
+                    <td class="px-4 py-2.5 text-slate-700">
                         <a href="/match/{{ bet.league }}/{{ bet.home_team|replace(' ', '_') }}/{{ bet.away_team|replace(' ', '_') }}"
-                           class="hover:text-white transition">
+                           class="hover:text-slate-800 transition">
                             {{ bet.home_team }} v {{ bet.away_team }}
                         </a>
                     </td>
-                    <td class="px-4 py-2.5 text-gray-400">{{ bet.bet_type|replace('_',' ')|title }}</td>
+                    <td class="px-4 py-2.5 text-slate-500">{{ bet.bet_type|replace('_',' ')|title }}</td>
                     <td class="px-4 py-2.5 text-center text-amber-400 font-mono">${{ bet.stake }}</td>
-                    <td class="px-4 py-2.5 text-center text-gray-300 font-mono">{{ bet.odds }}</td>
+                    <td class="px-4 py-2.5 text-center text-slate-700 font-mono">{{ bet.odds }}</td>
                     <td class="px-4 py-2.5 text-center">
                         <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold
                             {% if bet.status == 'won' %}bg-emerald-900/40 text-emerald-400
                             {% elif bet.status == 'lost' %}bg-red-900/40 text-red-400
-                            {% elif bet.status == 'void' %}bg-gray-700 text-gray-400
+                            {% elif bet.status == 'void' %}bg-gray-700 text-slate-500
                             {% else %}bg-amber-900/30 text-amber-400{% endif %}">
                             {{ bet.status|upper }}
                         </span>
@@ -340,13 +340,13 @@
                     <td class="px-4 py-2.5 text-right font-mono font-bold
                         {% if bet.profit_loss and bet.profit_loss > 0 %}text-emerald-400
                         {% elif bet.profit_loss and bet.profit_loss < 0 %}text-red-400
-                        {% else %}text-gray-500{% endif %}">
+                        {% else %}text-slate-500{% endif %}">
                         {% if bet.status != 'pending' %}{{ '%+.2f'|format(bet.profit_loss) }}{% else %}—{% endif %}
                     </td>
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="7" class="px-6 py-12 text-center text-gray-600">
+                    <td colspan="7" class="px-6 py-12 text-center text-slate-400">
                         No bets tracked yet. Place your first bet from any match detail page.
                     </td>
                 </tr>
