@@ -147,11 +147,30 @@
                                 <span class="text-sm font-semibold text-slate-800">{{ f.away_team }}</span>
                             </div>
 
-                            <!-- Arrow -->
-                            <div class="w-8 text-right">
-                                <svg class="w-4 h-4 text-slate-400 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-                                </svg>
+                            <!-- Confidence + Value Badge -->
+                            <div class="w-20 text-right flex flex-col items-end space-y-1">
+                                {% if pred and pred.confidence %}
+                                {% set conf = (pred.confidence * 100)|round(0)|int %}
+                                <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold font-mono
+                                    {% if conf >= 50 %}bg-green-100 text-green-700
+                                    {% elif conf >= 30 %}bg-yellow-100 text-yellow-700
+                                    {% else %}bg-slate-100 text-slate-500{% endif %}"
+                                    title="Model confidence">
+                                    {% if conf >= 50 %}&#9650;{% elif conf >= 30 %}&#9644;{% else %}&#9660;{% endif %}
+                                    {{ conf }}%
+                                </span>
+                                {% endif %}
+                                {% set has_vb = [] %}
+                                {% for vb in ld.value_bets %}
+                                    {% if vb.home_team == f.home_team and vb.away_team == f.away_team %}
+                                        {% if has_vb.append(vb) %}{% endif %}
+                                    {% endif %}
+                                {% endfor %}
+                                {% if has_vb %}
+                                <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold bg-green-100 text-green-700">
+                                    VALUE
+                                </span>
+                                {% endif %}
                             </div>
                         </div>
                     </a>
