@@ -96,6 +96,27 @@
                     </a>
                 </div>
 
+                <div class="px-6 py-2 bg-slate-50/50 border-b border-slate-100 flex items-center justify-between text-[9px] text-slate-400 relative">
+                    <span>H = Home Win | D = Draw | A = Away Win</span>
+                    <div class="flex items-center space-x-3" x-data="{ showConfHelp: false }">
+                        <span>▲ High | ▬ Medium | ▼ Low confidence</span>
+                        <button @click="showConfHelp = !showConfHelp" class="w-4 h-4 rounded bg-slate-200 hover:bg-slate-300 flex items-center justify-center text-slate-400 hover:text-slate-600 transition text-[8px]">?</button>
+                        <div x-show="showConfHelp" x-cloak @click.away="showConfHelp = false" class="absolute right-4 mt-48 z-50 bg-white border border-slate-200 rounded-xl shadow-lg p-4 w-72 text-xs text-slate-600 space-y-1.5">
+                            <p class="font-semibold text-slate-700">What is Confidence?</p>
+                            <p>Confidence measures <span class="font-semibold">how decisive the prediction is</span> — how much the top pick stands out from the alternatives.</p>
+                            <p class="font-semibold text-slate-700 mt-2">Example:</p>
+                            <p>Brentford H:50% D:24% A:26% → Confidence 32% (close race, not very decisive)</p>
+                            <p>Bayern H:84% D:10% A:6% → Confidence 65% (dominant pick, very decisive)</p>
+                            <p class="font-semibold text-slate-700 mt-2">How to use it:</p>
+                            <p><span class="text-green-700">▲ 50%+</span> = Models strongly agree. Bet with more conviction.</p>
+                            <p><span class="text-yellow-700">▬ 30-49%</span> = Moderate. Proceed with normal stakes.</p>
+                            <p><span class="text-slate-500">▼ Under 30%</span> = Uncertain. Use smaller stakes or skip.</p>
+                            <p class="mt-2"><span class="bg-green-100 text-green-700 px-1 rounded text-[9px] font-bold">VALUE</span> = Bookmaker odds are too generous for this outcome.</p>
+                            <p class="text-slate-500 mt-1">Best signal: high confidence + VALUE together.</p>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="divide-y divide-slate-200">
                     {% if ld.fixtures %}
                     {% for f in ld.fixtures %}
@@ -252,6 +273,16 @@
                             class="w-full px-4 py-3 rounded-lg bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-sm text-white transition flex items-center justify-between">
                         <span>Refresh Everything</span>
                         <span class="text-xs text-blue-200 font-mono">All Leagues</span>
+                    </button>
+                </div>
+                <div class="flex items-center space-x-2 mt-2">
+                    <a href="/api/export/dashboard" class="flex-1 px-4 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-sm text-slate-600 transition flex items-center justify-between">
+                        <span>Export</span>
+                        <span class="text-xs text-slate-400 font-mono">CSV</span>
+                    </a>
+                    <button onclick="window.print()" class="flex-1 px-4 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-sm text-slate-600 transition flex items-center justify-between">
+                        <span>Export</span>
+                        <span class="text-xs text-slate-400 font-mono">PDF</span>
                     </button>
                 </div>
                 <details class="mt-3">

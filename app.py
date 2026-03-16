@@ -1131,6 +1131,137 @@ def api_refresh_data():
     return jsonify({"status": "ok", "results": results})
 
 
+@app.route("/api/export/dashboard")
+@login_required
+def api_export_dashboard():
+    """Export all upcoming fixtures with predictions as CSV."""
+    import csv
+    from io import StringIO
+    from flask import Response
+
+    output = StringIO()
+    writer = csv.writer(output)
+    writer.writerow(['League', 'Date', 'Home Team', 'Away Team', 'Home %', 'Draw %', 'Away %',
+                     'Confidence', 'Over 2.5', 'BTTS', 'Value Bet', 'Edge %', 'Best Odds', 'Bookmaker'])
+
+    enabled_leagues = {code: lg for code, lg in config.LEAGUES.items() if lg.get("enabled")}
+    for code in enabled_leagues:
+        fixtures = db.fetch_all(
+            "SELECT * FROM fixtures WHERE league = ? AND status IN ('SCHEDULED','TIMED') ORDER BY match_date",
+            [code])
+        for f in fixtures:
+            pred = db.fetch_one(
+                "SELECT * FROM predictions WHERE league = ? AND home_team = ? AND away_team = ?",
+                [code, f["home_team"], f["away_team"]])
+            vb = db.fetch_one(
+                "SELECT * FROM value_bets WHERE league = ? AND home_team = ? AND away_team = ? AND result = 'pending' ORDER BY edge_percent DESC LIMIT 1",
+                [code, f["home_team"], f["away_team"]])
+            writer.writerow([
+                code, f["match_date"][:10] if f.get("match_date") else '',
+                f["home_team"], f["away_team"],
+                round(pred["ensemble_home"]*100, 1) if pred and pred.get("ensemble_home") else '',
+                round(pred["ensemble_draw"]*100, 1) if pred and pred.get("ensemble_draw") else '',
+                round(pred["ensemble_away"]*100, 1) if pred and pred.get("ensemble_away") else '',
+                round(pred["confidence"]*100, 1) if pred and pred.get("confidence") else '',
+                round(pred["ensemble_over25"]*100, 1) if pred and pred.get("ensemble_over25") else '',
+                round(pred["ensemble_btts"]*100, 1) if pred and pred.get("ensemble_btts") else '',
+                vb["bet_type"] if vb else '',
+                vb["edge_percent"] if vb else '',
+                vb["best_odds"] if vb else '',
+                vb["best_bookmaker"] if vb else '',
+            ])
+
+    response = Response(output.getvalue(), mimetype='text/csv')
+    response.headers['Content-Disposition'] = 'attachment; filename=projectsoccer_fixtures.csv'
+    return response
+
+
+@app.route("/api/export/match/<league>/<home_team>/<away_team>")
+@login_required
+def api_export_match(league, home_team, away_team):
+    """Export match detail as CSV."""
+    import csv
+    from io import StringIO
+    from flask import Response
+
+    home_team = home_team.replace("_", " ")
+    away_team = away_team.replace("_", " ")
+
+    output = StringIO()
+    writer = csv.writer(output)
+
+    # Match header
+    writer.writerow(['Match Detail Export'])
+    writer.writerow(['Match', f'{home_team} vs {away_team}'])
+    writer.writerow(['League', league])
+    writer.writerow([])
+
+    # Prediction
+    pred = db.fetch_one(
+        "SELECT * FROM predictions WHERE league = ? AND home_team = ? AND away_team = ?",
+        [league, home_team, away_team])
+    if pred:
+        writer.writerow(['ENSEMBLE PREDICTION'])
+        writer.writerow(['Outcome', 'Probability', 'Implied Odds'])
+        writer.writerow(['Home Win', f'{round(pred["ensemble_home"]*100,1)}%', round(1/pred["ensemble_home"],2) if pred["ensemble_home"] else ''])
+        writer.writerow(['Draw', f'{round(pred["ensemble_draw"]*100,1)}%', round(1/pred["ensemble_draw"],2) if pred["ensemble_draw"] else ''])
+        writer.writerow(['Away Win', f'{round(pred["ensemble_away"]*100,1)}%', round(1/pred["ensemble_away"],2) if pred["ensemble_away"] else ''])
+        if pred.get("ensemble_over25"):
+            writer.writerow(['Over 2.5', f'{round(pred["ensemble_over25"]*100,1)}%'])
+        if pred.get("ensemble_btts"):
+            writer.writerow(['BTTS', f'{round(pred["ensemble_btts"]*100,1)}%'])
+        writer.writerow(['Confidence', f'{round(pred["confidence"]*100,1)}%' if pred.get("confidence") else ''])
+        writer.writerow([])
+
+        # Individual models
+        writer.writerow(['MODEL BREAKDOWN'])
+        writer.writerow(['Model', 'Home %', 'Draw %', 'Away %'])
+        for model, prefix in [('Poisson', 'poisson'), ('Elo', 'elo'), ('XGBoost', 'xgboost'), ('Sentiment', 'sentiment')]:
+            h = pred.get(f'{prefix}_home')
+            d = pred.get(f'{prefix}_draw')
+            a = pred.get(f'{prefix}_away')
+            if h is not None:
+                writer.writerow([model, f'{round(h*100,1)}%', f'{round(d*100,1)}%', f'{round(a*100,1)}%'])
+        writer.writerow([])
+
+    # Odds
+    odds_rows = db.fetch_all(
+        "SELECT bookmaker, home_odds, draw_odds, away_odds, margin FROM odds WHERE league = ? AND home_team = ? AND away_team = ? ORDER BY home_odds DESC",
+        [league, home_team, away_team])
+    if odds_rows:
+        writer.writerow(['BOOKMAKER ODDS'])
+        writer.writerow(['Bookmaker', 'Home', 'Draw', 'Away', 'Margin'])
+        for o in odds_rows[:15]:
+            writer.writerow([o["bookmaker"], o.get("home_odds"), o.get("draw_odds"), o.get("away_odds"), f'{o["margin"]}%' if o.get("margin") else ''])
+        writer.writerow([])
+
+    # Value bets
+    vbs = db.fetch_all(
+        "SELECT * FROM value_bets WHERE league = ? AND home_team = ? AND away_team = ? AND result = 'pending'",
+        [league, home_team, away_team])
+    if vbs:
+        writer.writerow(['VALUE BETS'])
+        writer.writerow(['Bet Type', 'Model Prob', 'Edge %', 'Best Odds', 'Bookmaker', 'Kelly %'])
+        for v in vbs:
+            writer.writerow([v["bet_type"], f'{round(v["model_probability"]*100,1)}%', f'+{v["edge_percent"]}%', v["best_odds"], v["best_bookmaker"], f'{v["kelly_stake"]}%'])
+        writer.writerow([])
+
+    # H2H
+    h2h = db.fetch_all(
+        "SELECT match_date, home_team, away_team, ft_home_goals, ft_away_goals, ft_result FROM matches WHERE league = ? AND ((home_team = ? AND away_team = ?) OR (home_team = ? AND away_team = ?)) ORDER BY match_date DESC LIMIT 10",
+        [league, home_team, away_team, away_team, home_team])
+    if h2h:
+        writer.writerow(['HEAD TO HEAD'])
+        writer.writerow(['Date', 'Home', 'Away', 'Score', 'Result'])
+        for m in h2h:
+            writer.writerow([m["match_date"], m["home_team"], m["away_team"], f'{m["ft_home_goals"]}-{m["ft_away_goals"]}', m["ft_result"]])
+
+    safe_name = f'{home_team}_vs_{away_team}'.replace(' ', '_')
+    response = Response(output.getvalue(), mimetype='text/csv')
+    response.headers['Content-Disposition'] = f'attachment; filename={safe_name}.csv'
+    return response
+
+
 # --- Template Filters ---
 
 @app.template_filter("pct")
