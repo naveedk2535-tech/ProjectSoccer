@@ -4,7 +4,7 @@
 {% block content %}
 <div class="space-y-6">
     <div>
-        <h1 class="text-2xl font-bold text-slate-800">Model Performance</h1>
+        <h1 class="text-2xl font-black text-slate-800">Model Performance</h1>
         <p class="text-sm text-slate-500">Backtest results, calibration, and ROI tracking</p>
     </div>
 
@@ -21,13 +21,13 @@
                 </div>
                 <div class="flex justify-between text-sm">
                     <span class="text-slate-500">Brier Score</span>
-                    <span class="font-mono {% if p.brier_score and p.brier_score < 0.2 %}text-green-400{% else %}text-slate-700{% endif %}">
+                    <span class="font-mono {% if p.brier_score and p.brier_score < 0.2 %}text-green-700{% else %}text-slate-700{% endif %}">
                         {{ p.brier_score|round(4) if p.brier_score else '—' }}
                     </span>
                 </div>
                 <div class="flex justify-between text-sm">
                     <span class="text-slate-500">ROI</span>
-                    <span class="font-mono {% if p.roi_percent and p.roi_percent > 0 %}text-green-400{% else %}text-red-400{% endif %}">
+                    <span class="font-mono {% if p.roi_percent and p.roi_percent > 0 %}text-green-700{% else %}text-red-600{% endif %}">
                         {% if p.roi_percent %}{{ '%+.1f'|format(p.roi_percent) }}%{% else %}—{% endif %}
                     </span>
                 </div>

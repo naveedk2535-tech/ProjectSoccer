@@ -4,7 +4,7 @@
 {% block content %}
 <div class="space-y-6">
     <div>
-        <h1 class="text-2xl font-bold text-slate-800">Sentiment Tracker</h1>
+        <h1 class="text-2xl font-black text-slate-800">Sentiment Tracker</h1>
         <p class="text-sm text-slate-500">Reddit + News sentiment analysis per team</p>
     </div>
 
@@ -13,10 +13,10 @@
         {% for team, sent in team_sentiments.items() %}
         <div class="glass rounded-xl p-5 stat-card">
             <div class="flex items-center justify-between mb-3">
-                <h3 class="text-sm font-medium text-slate-800">{{ team }}</h3>
+                <h3 class="text-sm font-semibold text-slate-800">{{ team }}</h3>
                 <span class="text-lg font-mono font-bold
-                    {% if sent.combined_score and sent.combined_score > 0.1 %}text-green-400
-                    {% elif sent.combined_score and sent.combined_score < -0.1 %}text-red-400
+                    {% if sent.combined_score and sent.combined_score > 0.1 %}text-green-700
+                    {% elif sent.combined_score and sent.combined_score < -0.1 %}text-red-600
                     {% else %}text-slate-500{% endif %}">
                     {% if sent.combined_score %}
                     {{ '%+.2f'|format(sent.combined_score) }}
@@ -48,7 +48,7 @@
                 </div>
                 <div class="bg-slate-50 rounded p-2">
                     <p class="text-slate-500">Trend</p>
-                    <p class="font-mono {% if sent.sentiment_trend and sent.sentiment_trend > 0 %}text-green-400{% elif sent.sentiment_trend and sent.sentiment_trend < 0 %}text-red-400{% else %}text-slate-500{% endif %}">
+                    <p class="font-mono {% if sent.sentiment_trend and sent.sentiment_trend > 0 %}text-green-700{% elif sent.sentiment_trend and sent.sentiment_trend < 0 %}text-red-600{% else %}text-slate-500{% endif %}">
                         {% if sent.sentiment_trend %}{{ '%+.2f'|format(sent.sentiment_trend) }}{% else %}—{% endif %}
                     </p>
                 </div>
