@@ -588,6 +588,57 @@
                 <p class="text-gray-500 text-xs mt-3">You can refresh 2x/day across all 3 leagues. The model finds VALUE, not winners. Trust the process over volume.</p>
             </div>
         </div>
+
+        <!-- Match Day Schedule -->
+        <div class="mb-6">
+            <h3 class="text-sm font-semibold text-blue-400 uppercase tracking-wider mb-2">When to Refresh (Match Schedule)</h3>
+            <div class="bg-dark-700/50 rounded-lg p-3">
+                <table class="w-full text-xs">
+                    <thead>
+                        <tr class="text-gray-500 border-b border-gray-700">
+                            <th class="py-1.5 text-left">Day</th>
+                            <th class="py-1.5 text-left">Matches?</th>
+                            <th class="py-1.5 text-left">Refresh?</th>
+                        </tr>
+                    </thead>
+                    <tbody class="text-gray-300">
+                        <tr class="border-b border-gray-800"><td class="py-1.5">Monday</td><td>Sometimes PL</td><td class="text-gray-500">Only if there's a match</td></tr>
+                        <tr class="border-b border-gray-800"><td class="py-1.5">Tuesday</td><td>PL / Champions League</td><td class="text-yellow-400">Yes, if PL plays</td></tr>
+                        <tr class="border-b border-gray-800"><td class="py-1.5">Wednesday</td><td>PL / Champions League</td><td class="text-yellow-400">Yes, if PL plays</td></tr>
+                        <tr class="border-b border-gray-800"><td class="py-1.5">Thursday</td><td>Rarely</td><td class="text-gray-500">Skip</td></tr>
+                        <tr class="border-b border-gray-800"><td class="py-1.5">Friday</td><td>Bundesliga, La Liga</td><td class="text-green-400">Yes</td></tr>
+                        <tr class="border-b border-gray-800"><td class="py-1.5 text-white font-semibold">Saturday</td><td class="text-white">All 3 leagues</td><td class="text-green-400 font-semibold">Yes — busiest day</td></tr>
+                        <tr><td class="py-1.5">Sunday</td><td>PL, La Liga</td><td class="text-green-400">Yes</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- API Limits Table -->
+        <div class="mb-2">
+            <h3 class="text-sm font-semibold text-red-400 uppercase tracking-wider mb-2">API Refresh Limits</h3>
+            <div class="bg-dark-700/50 rounded-lg p-3">
+                <table class="w-full text-xs">
+                    <thead>
+                        <tr class="text-gray-500 border-b border-gray-700">
+                            <th class="py-1.5 text-left">API</th>
+                            <th class="py-1.5 text-center">Morning</th>
+                            <th class="py-1.5 text-center">Pre-match</th>
+                            <th class="py-1.5 text-center">Spare</th>
+                            <th class="py-1.5 text-right">Monthly</th>
+                            <th class="py-1.5 text-right">Limit</th>
+                        </tr>
+                    </thead>
+                    <tbody class="text-gray-300">
+                        <tr class="border-b border-gray-800"><td class="py-1.5">Odds</td><td class="text-center font-mono">3</td><td class="text-center font-mono">3</td><td class="text-center font-mono text-yellow-400">2</td><td class="text-right font-mono">~240</td><td class="text-right font-mono text-gray-500">500</td></tr>
+                        <tr class="border-b border-gray-800"><td class="py-1.5">Reddit</td><td class="text-center font-mono">1</td><td class="text-center font-mono">1</td><td class="text-center font-mono text-green-400">2</td><td class="text-right font-mono">~120</td><td class="text-right font-mono text-gray-500">unlimited</td></tr>
+                        <tr class="border-b border-gray-800"><td class="py-1.5">NewsAPI</td><td class="text-center font-mono">1</td><td class="text-center font-mono">1</td><td class="text-center font-mono text-green-400">2</td><td class="text-right font-mono">~120</td><td class="text-right font-mono text-gray-500">3,000</td></tr>
+                        <tr><td class="py-1.5">Fixtures</td><td class="text-center font-mono">3</td><td class="text-center font-mono">3</td><td class="text-center font-mono text-green-400">resets/min</td><td class="text-right font-mono">~180</td><td class="text-right font-mono text-gray-500">unlimited</td></tr>
+                    </tbody>
+                </table>
+                <p class="text-[10px] text-gray-600 mt-2">Each "Refresh Everything" uses 3 calls per API (1 per league). You have budget for 2 full refreshes/day with spare.</p>
+            </div>
+        </div>
     </div>
 </div>
 
