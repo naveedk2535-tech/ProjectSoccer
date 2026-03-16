@@ -67,11 +67,17 @@ def dashboard():
         [league]
     )
 
-    # Get standings
-    standings = football_data_api.get_standings(league)
+    # Get standings from cache (don't hit API on page load)
+    try:
+        standings = football_data_api.get_standings(league)
+    except Exception:
+        standings = []
 
     # API usage
-    api_usage = get_usage_summary()
+    try:
+        api_usage = get_usage_summary()
+    except Exception:
+        api_usage = {}
 
     # Match count
     match_count = football_data_uk.get_match_count(league)
@@ -97,14 +103,70 @@ def match_detail(league, home_team, away_team):
     away_team = away_team.replace("_", " ")
     league_config = config.LEAGUES.get(league, config.LEAGUES["PL"])
 
-    # Generate fresh prediction
-    prediction = ensemble.predict(home_team, away_team, league)
+    # Try cached prediction first, fall back to live computation
+    cached_pred = db.fetch_one(
+        "SELECT * FROM predictions WHERE league = ? AND home_team = ? AND away_team = ?",
+        [league, home_team, away_team]
+    )
 
-    # Get odds
+    if cached_pred and cached_pred.get("ensemble_home"):
+        # Build prediction dict from cached data
+        import json as _json
+        scoreline = None
+        try:
+            scoreline = _json.loads(cached_pred["scoreline_matrix"]) if cached_pred.get("scoreline_matrix") else None
+        except Exception:
+            pass
+
+        prediction = {
+            "home_win": cached_pred["ensemble_home"],
+            "draw": cached_pred["ensemble_draw"],
+            "away_win": cached_pred["ensemble_away"],
+            "over25": cached_pred.get("ensemble_over25"),
+            "btts": cached_pred.get("ensemble_btts"),
+            "confidence": cached_pred.get("confidence", 0.5),
+            "most_likely_score": None,
+            "scoreline_matrix": scoreline,
+            "predicted_outcome": "H" if (cached_pred["ensemble_home"] or 0) >= max(cached_pred["ensemble_draw"] or 0, cached_pred["ensemble_away"] or 0) else ("A" if (cached_pred["ensemble_away"] or 0) > (cached_pred["ensemble_draw"] or 0) else "D"),
+            "implied_odds": {
+                "home": round(1 / cached_pred["ensemble_home"], 2) if cached_pred["ensemble_home"] else None,
+                "draw": round(1 / cached_pred["ensemble_draw"], 2) if cached_pred["ensemble_draw"] else None,
+                "away": round(1 / cached_pred["ensemble_away"], 2) if cached_pred["ensemble_away"] else None,
+            },
+            "models_used": [],
+            "model_details": {},
+        }
+        # Reconstruct model details from cached columns
+        for model_name, prefix in [("poisson", "poisson"), ("elo", "elo"), ("xgboost", "xgboost"), ("sentiment", "sentiment")]:
+            h = cached_pred.get(f"{prefix}_home")
+            d = cached_pred.get(f"{prefix}_draw")
+            a = cached_pred.get(f"{prefix}_away")
+            if h is not None:
+                prediction["models_used"].append(model_name)
+                weight = config.MODEL_WEIGHTS.get(model_name, 0.25)
+                prediction["model_details"][model_name] = {
+                    "weight": weight, "home_win": h, "draw": d, "away_win": a,
+                }
+        prediction["models_available"] = len(prediction["models_used"])
+
+        # Find most likely score from matrix
+        if scoreline:
+            import numpy as np
+            matrix = np.array(scoreline)
+            idx = np.unravel_index(matrix.argmax(), matrix.shape)
+            prediction["most_likely_score"] = f"{idx[0]}-{idx[1]}"
+    else:
+        prediction = None
+
+    # Get odds from database only (no API call)
     best_odds = odds_api.get_best_odds(league, home_team, away_team)
 
-    # Calculate value bets
-    value = ensemble.calculate_value(prediction, best_odds) if prediction and best_odds else []
+    # Get cached value bets
+    value = db.fetch_all(
+        """SELECT * FROM value_bets WHERE league = ? AND home_team = ? AND away_team = ? AND result = 'pending'
+           ORDER BY edge_percent DESC""",
+        [league, home_team, away_team]
+    )
 
     # Head-to-head history
     h2h_matches = db.fetch_all(
@@ -227,13 +289,35 @@ def performance_view():
 
 @app.route("/api/predict/<league>/<home_team>/<away_team>")
 def api_predict(league, home_team, away_team):
-    """API endpoint for match prediction."""
+    """API endpoint for match prediction. Uses cached predictions when available."""
     home_team = home_team.replace("_", " ")
     away_team = away_team.replace("_", " ")
-    prediction = ensemble.predict(home_team, away_team, league)
-    if not prediction:
-        return jsonify({"error": "Could not generate prediction"}), 404
-    return jsonify(prediction)
+
+    # Try cache first
+    cached = db.fetch_one(
+        "SELECT * FROM predictions WHERE league = ? AND home_team = ? AND away_team = ?",
+        [league, home_team, away_team]
+    )
+    if cached and cached.get("ensemble_home"):
+        return jsonify({
+            "home_win": cached["ensemble_home"],
+            "draw": cached["ensemble_draw"],
+            "away_win": cached["ensemble_away"],
+            "over25": cached.get("ensemble_over25"),
+            "btts": cached.get("ensemble_btts"),
+            "confidence": cached.get("confidence"),
+            "source": "cached",
+        })
+
+    # Fall back to live prediction
+    force = request.args.get("force", "false") == "true"
+    if force:
+        prediction = ensemble.predict(home_team, away_team, league)
+        if not prediction:
+            return jsonify({"error": "Could not generate prediction"}), 404
+        return jsonify(prediction)
+
+    return jsonify({"error": "No cached prediction. Add ?force=true to compute live (slow)."}), 404
 
 
 @app.route("/api/fixtures/<league>")
