@@ -28,6 +28,21 @@ app.secret_key = config.FLASK_SECRET_KEY
 
 
 USERS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "users.json")
+SETTINGS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "app_settings.json")
+
+
+def load_settings():
+    try:
+        with open(SETTINGS_FILE, "r") as f:
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return {"bankroll": 0}
+
+
+def save_settings(settings):
+    os.makedirs(os.path.dirname(SETTINGS_FILE), exist_ok=True)
+    with open(SETTINGS_FILE, "w") as f:
+        json.dump(settings, f, indent=2)
 
 
 def load_users():
@@ -398,6 +413,9 @@ def portfolio_view():
         "bankroll_change": round(total_profit, 2),
     }
 
+    settings = load_settings()
+    bankroll_start = settings.get("bankroll", 0)
+
     return render_template("portfolio.html",
         league=league,
         league_config=league_config,
@@ -405,6 +423,7 @@ def portfolio_view():
         bets=all_bets,
         pending=pending,
         summary=summary,
+        bankroll_start=bankroll_start,
     )
 
 
@@ -471,6 +490,19 @@ def api_delete_user(username):
     save_users(users)
     USERS = users
     return jsonify({"status": "ok", "message": f"User '{username}' deleted"})
+
+
+@app.route("/api/bankroll", methods=["PUT"])
+@login_required
+def api_set_bankroll():
+    """Set the starting bankroll amount."""
+    data = request.json
+    if not data or "bankroll" not in data:
+        return jsonify({"error": "Provide bankroll amount"}), 400
+    settings = load_settings()
+    settings["bankroll"] = float(data["bankroll"])
+    save_settings(settings)
+    return jsonify({"status": "ok", "bankroll": settings["bankroll"]})
 
 
 # --- API Routes ---

@@ -2,58 +2,66 @@
 {% block title %}Bet Portfolio{% endblock %}
 
 {% block content %}
-{% set bankroll_start = 1000 %}
 {% set bankroll_current = bankroll_start + summary.total_profit %}
 
-<style>
-    .financial-grid {
-        background-image:
-            linear-gradient(rgba(245, 158, 11, 0.015) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(245, 158, 11, 0.015) 1px, transparent 1px);
-        background-size: 40px 40px;
-    }
-</style>
-
-<div class="space-y-6 financial-grid">
-    <div class="flex items-center justify-between">
-        <div>
-            <h1 class="text-2xl font-bold text-white">Bet Portfolio</h1>
-            <p class="text-sm text-gray-500">Track all your bets like a stock portfolio</p>
-        </div>
-    </div>
-
-    <!-- Portfolio Value Hero Section -->
-    <div class="rounded-2xl overflow-hidden {% if summary.total_profit >= 0 %}bg-gradient-to-br from-emerald-900/40 via-green-900/20 to-dark-900{% else %}bg-gradient-to-br from-red-900/40 via-red-900/20 to-dark-900{% endif %} border {% if summary.total_profit >= 0 %}border-emerald-700/30{% else %}border-red-700/30{% endif %}">
-        <div class="px-8 py-8">
+<div class="space-y-6" x-data="{ editingBankroll: false, newBankroll: {{ bankroll_start }} }">
+    <!-- Portfolio Value Hero Section — distinct blue/indigo container -->
+    <div class="rounded-2xl overflow-hidden bg-gradient-to-br from-indigo-900/50 via-blue-900/30 to-dark-900 border border-indigo-700/30">
+        <div class="px-8 py-7">
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-xs text-gray-400 uppercase tracking-widest font-semibold mb-1">Total Bankroll</p>
-                    <p class="text-5xl font-black font-mono {% if bankroll_current >= bankroll_start %}text-emerald-400{% else %}text-red-400{% endif %}">
-                        ${{ '%.2f'|format(bankroll_current) }}
-                    </p>
-                    <div class="flex items-center space-x-3 mt-2">
-                        <span class="text-sm font-mono {% if summary.total_profit > 0 %}text-emerald-400{% elif summary.total_profit < 0 %}text-red-400{% else %}text-gray-400{% endif %}">
-                            {{ '%+.2f'|format(summary.total_profit) }}
-                        </span>
-                        <span class="text-xs text-gray-500">|</span>
-                        <span class="text-sm font-mono {% if summary.roi > 0 %}text-emerald-400{% elif summary.roi < 0 %}text-red-400{% else %}text-gray-400{% endif %}">
-                            {{ '%+.1f'|format(summary.roi) }}% ROI
-                        </span>
-                        <span class="text-xs text-gray-500">|</span>
-                        <span class="text-xs text-gray-500">Starting: ${{ '%.2f'|format(bankroll_start) }}</span>
+                    <div class="flex items-center space-x-3 mb-1">
+                        <p class="text-xs text-indigo-300 uppercase tracking-widest font-semibold">Starting Bankroll</p>
+                        <button @click="editingBankroll = !editingBankroll" class="text-[10px] text-indigo-400 hover:text-white transition">
+                            <span x-show="!editingBankroll">Edit</span>
+                            <span x-show="editingBankroll" x-cloak>Cancel</span>
+                        </button>
                     </div>
+
+                    <!-- Display mode -->
+                    <div x-show="!editingBankroll">
+                        <p class="text-4xl font-black font-mono text-white">
+                            ${{ '%.2f'|format(bankroll_start) }}
+                        </p>
+                    </div>
+
+                    <!-- Edit mode -->
+                    <div x-show="editingBankroll" x-cloak class="flex items-center space-x-2">
+                        <span class="text-3xl font-black text-white">$</span>
+                        <input type="number" x-model="newBankroll" step="1" min="0"
+                               class="w-40 px-3 py-2 rounded-lg bg-dark-800 border border-indigo-600 text-white font-mono text-2xl font-bold focus:border-indigo-400 focus:outline-none">
+                        <button @click="fetch('/api/bankroll', {method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify({bankroll:parseFloat(newBankroll)})}).then(()=>location.reload())"
+                                class="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium transition">
+                            Save
+                        </button>
+                    </div>
+
+                    <p class="text-xs text-indigo-300/60 mt-1">This is how much you've set aside for betting</p>
                 </div>
-                <div class="text-right">
-                    <p class="text-xs text-gray-500 uppercase tracking-wider">P&L</p>
-                    <p class="text-4xl font-bold font-mono {% if summary.total_profit > 0 %}text-emerald-400{% elif summary.total_profit < 0 %}text-red-400{% else %}text-gray-400{% endif %}">
-                        {{ '%+.2f'|format(summary.total_profit) }}
-                    </p>
+
+                <!-- Current value + P&L -->
+                <div class="text-right space-y-2">
+                    <div>
+                        <p class="text-[10px] text-gray-500 uppercase tracking-wider">Current Value</p>
+                        <p class="text-3xl font-bold font-mono {% if bankroll_current >= bankroll_start %}text-emerald-400{% elif bankroll_current < bankroll_start %}text-red-400{% else %}text-white{% endif %}">
+                            ${{ '%.2f'|format(bankroll_current) }}
+                        </p>
+                    </div>
+                    <div>
+                        <p class="text-[10px] text-gray-500 uppercase tracking-wider">P&L</p>
+                        <p class="text-xl font-bold font-mono {% if summary.total_profit > 0 %}text-emerald-400{% elif summary.total_profit < 0 %}text-red-400{% else %}text-gray-400{% endif %}">
+                            {{ '%+.2f'|format(summary.total_profit) }}
+                            <span class="text-sm">({{ '%+.1f'|format(summary.roi) }}%)</span>
+                        </p>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Summary Cards - Financial Color Scheme -->
+    <!-- Summary Cards — dark teal container -->
+    <div class="rounded-xl bg-gradient-to-r from-teal-900/20 via-dark-800 to-dark-800 border border-teal-800/20 p-4">
+    <p class="text-[10px] text-teal-400 uppercase tracking-widest font-semibold mb-3">Performance Overview</p>
     <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
         <div class="glass rounded-xl p-4 stat-card">
             <p class="text-[10px] text-gray-500 uppercase">Total Bets</p>
@@ -97,7 +105,11 @@
         </div>
     </div>
 
-    <!-- Extra Stats Row -->
+    </div><!-- close teal container -->
+
+    <!-- Extra Stats Row — amber container -->
+    <div class="rounded-xl bg-gradient-to-r from-amber-900/15 via-dark-800 to-dark-800 border border-amber-800/20 p-4">
+    <p class="text-[10px] text-amber-400 uppercase tracking-widest font-semibold mb-3">Betting Stats</p>
     <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
         <div class="glass rounded-xl p-4">
             <p class="text-[10px] text-gray-500 uppercase">Avg Stake</p>
@@ -116,6 +128,8 @@
             <p class="text-lg font-bold text-red-400 font-mono mt-1">${{ summary.worst_loss }}</p>
         </div>
     </div>
+
+    </div><!-- close amber container -->
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <!-- Pending Bets -->
