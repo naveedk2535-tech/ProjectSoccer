@@ -1095,14 +1095,7 @@ def api_refresh_data():
     if action in ("all", "csv"):
         count = football_data_uk.download_all_leagues()
         results["csv_matches_imported"] = count
-        if count > 0:
-            results["note_csv"] = "New results found — rebuilding ratings"
-            try:
-                from scheduler import task_ratings
-                task_ratings()
-                results["ratings_rebuilt"] = True
-            except Exception as e:
-                logger.error("Rating rebuild failed: %s", e)
+        # Skip heavy rating rebuild during web request — do it via scheduler
 
     if action in ("all", "fixtures"):
         total_fixtures = 0
@@ -1124,14 +1117,9 @@ def api_refresh_data():
                 logger.error("Odds fetch failed for %s: %s", code, e)
         results["odds_events"] = total_odds
 
-    # If we got new fixtures or odds, regenerate predictions
-    if action == "all" and (results.get("fixtures_fetched", 0) > 0 or results.get("odds_events", 0) > 0):
-        try:
-            from scheduler import task_predictions
-            task_predictions()
-            results["predictions_regenerated"] = True
-        except Exception as e:
-            logger.error("Prediction generation failed: %s", e)
+    # Skip prediction regeneration during web request — too slow for free tier
+    # Predictions are pre-computed and cached in the database
+    results["note"] = "Data fetched. Predictions use cached values."
 
     # Track what was rate-limited
     from data.rate_limiter import get_usage_summary
