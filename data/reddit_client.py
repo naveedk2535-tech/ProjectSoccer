@@ -150,23 +150,21 @@ def fetch_team_sentiment(team, league="PL"):
     if not reddit:
         return None
 
-    search_terms = TEAM_SEARCH_TERMS.get(team, [team.lower()])
+    league_teams = LEAGUE_TEAM_SEARCH.get(league, {})
+    search_terms = league_teams.get(team, TEAM_SEARCH_TERMS.get(team, [team.lower()]))
     league_config = config.LEAGUES.get(league, {})
     subreddits = league_config.get("subreddits", ["soccer"])
 
     texts = []
     try:
-        for sub_name in subreddits:
+        for sub_name in subreddits[:1]:  # only primary subreddit to save API calls
             subreddit = reddit.subreddit(sub_name)
-            for term in search_terms[:2]:  # limit search terms
-                for post in subreddit.search(term, time_filter="week", limit=10):
+            for term in search_terms[:1]:  # only first search term
+                for post in subreddit.search(term, time_filter="week", limit=5):
                     texts.append(post.title)
                     if post.selftext:
-                        texts.append(post.selftext[:500])
-                    # Top comments
-                    post.comments.replace_more(limit=0)
-                    for comment in post.comments[:5]:
-                        texts.append(comment.body[:300])
+                        texts.append(post.selftext[:300])
+                    # Skip comments — titles are enough for sentiment
 
         # rate limiting handled at bulk level
     except Exception as e:
