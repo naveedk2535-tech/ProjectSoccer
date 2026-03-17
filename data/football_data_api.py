@@ -53,12 +53,12 @@ def _api_get(endpoint, cache_key=None, cache_ttl=None):
 
 
 def get_upcoming_fixtures(league_code="PL", days_ahead=14):
-    """Fetch upcoming fixtures for a league."""
-    date_from = datetime.utcnow().strftime("%Y-%m-%d")
+    """Fetch upcoming AND recently finished fixtures for a league."""
+    date_from = (datetime.utcnow() - timedelta(days=3)).strftime("%Y-%m-%d")
     date_to = (datetime.utcnow() + timedelta(days=days_ahead)).strftime("%Y-%m-%d")
 
     data = _api_get(
-        f"/competitions/{league_code}/matches?dateFrom={date_from}&dateTo={date_to}&status=SCHEDULED,TIMED",
+        f"/competitions/{league_code}/matches?dateFrom={date_from}&dateTo={date_to}",
         cache_key=f"fixtures_{league_code}",
         cache_ttl=config.CACHE_TTL["fixtures"]
     )
@@ -66,24 +66,67 @@ def get_upcoming_fixtures(league_code="PL", days_ahead=14):
         return []
 
     fixtures = []
+    finished_count = 0
     for m in data["matches"]:
+        home_team = standardise(m.get("homeTeam", {}).get("name", ""))
+        away_team = standardise(m.get("awayTeam", {}).get("name", ""))
+        status = m.get("status")
+        match_date = m.get("utcDate", "")
+        score = m.get("score", {})
+        ft = score.get("fullTime", {})
+        referee_name = (m.get("referees") or [{}])[0].get("name") if m.get("referees") else None
+
         fixture = {
             "league": league_code,
             "external_id": m.get("id"),
-            "match_date": m.get("utcDate"),
+            "match_date": match_date,
             "matchday": m.get("matchday"),
-            "status": m.get("status"),
-            "home_team": standardise(m.get("homeTeam", {}).get("name", "")),
-            "away_team": standardise(m.get("awayTeam", {}).get("name", "")),
-            "referee": (m.get("referees") or [{}])[0].get("name") if m.get("referees") else None,
+            "status": status,
+            "home_team": home_team,
+            "away_team": away_team,
+            "home_score": ft.get("home"),
+            "away_score": ft.get("away"),
+            "referee": referee_name,
             "venue": m.get("venue"),
         }
-        fixtures.append(fixture)
 
-    # Save to database
-    if fixtures:
-        db.insert_many("fixtures", fixtures)
-        logger.info("Saved %d upcoming fixtures for %s", len(fixtures), league_code)
+        # Update fixture status (TIMED → FINISHED)
+        db.execute(
+            """INSERT INTO fixtures (league, external_id, match_date, matchday, status,
+                   home_team, away_team, home_score, away_score, referee, venue)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+               ON CONFLICT(league, match_date, home_team, away_team) DO UPDATE SET
+                   status=excluded.status, home_score=excluded.home_score,
+                   away_score=excluded.away_score, referee=excluded.referee""",
+            [league_code, fixture["external_id"], match_date, fixture["matchday"],
+             status, home_team, away_team, ft.get("home"), ft.get("away"),
+             referee_name, fixture["venue"]]
+        )
+
+        # If match is finished, also insert into matches table
+        if status == "FINISHED" and ft.get("home") is not None:
+            home_goals = ft.get("home")
+            away_goals = ft.get("away")
+            ht = score.get("halfTime", {})
+            result = "H" if home_goals > away_goals else ("A" if away_goals > home_goals else "D")
+
+            db.execute(
+                """INSERT OR IGNORE INTO matches
+                   (league, season, match_date, home_team, away_team,
+                    ft_home_goals, ft_away_goals, ft_result,
+                    ht_home_goals, ht_away_goals, referee)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                [league_code, "2526", match_date[:10], home_team, away_team,
+                 home_goals, away_goals, result,
+                 ht.get("home"), ht.get("away"), referee_name]
+            )
+            finished_count += 1
+
+        if status in ("SCHEDULED", "TIMED"):
+            fixtures.append(fixture)
+
+    logger.info("Saved %d fixtures for %s (%d finished results imported)",
+                len(fixtures) + finished_count, league_code, finished_count)
 
     return fixtures
 
