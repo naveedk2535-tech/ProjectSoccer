@@ -3,11 +3,18 @@ Ensemble model — combines all individual models with optimised weights.
 
 Blends: Poisson/Dixon-Coles, Elo, XGBoost, Sentiment
 into a single probability output.
+
+Supports two blending methods:
+1. Weighted average (default fallback)
+2. Stacking ensemble via logistic regression meta-model
 """
 import logging
 import json
 import os
+import pickle
 from datetime import datetime
+
+import numpy as np
 
 from models import poisson as poisson_model
 from models import elo as elo_model
@@ -17,6 +24,8 @@ from database import db
 import config
 
 logger = logging.getLogger(__name__)
+
+STACKER_PATH = os.path.join(config.BASE_DIR, "data", "cache", "stacker_model.pkl")
 
 SETTINGS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data", "app_settings.json")
 
@@ -39,6 +48,193 @@ def _load_weights():
 
 
 WEIGHTS = _load_weights()
+
+
+def train_stacker(league="PL"):
+    """
+    Train a logistic regression meta-model that learns the optimal
+    way to combine individual model predictions based on context.
+
+    Features for the stacker:
+    - All 4 model probabilities (12 values: H/D/A for each model)
+    - Elo difference (context: how close are the teams)
+    - Model agreement score (do models agree or disagree)
+    - Max probability (how confident is the best model)
+
+    Target: actual match result (0=H, 1=D, 2=A)
+    """
+    try:
+        from sklearn.linear_model import LogisticRegression
+        from sklearn.model_selection import cross_val_score
+    except ImportError:
+        logger.error("sklearn not installed, cannot train stacker")
+        return None
+
+    # Get historical predictions with actual results
+    rows = db.fetch_all(
+        """SELECT p.poisson_home, p.poisson_draw, p.poisson_away,
+                  p.elo_home, p.elo_draw, p.elo_away,
+                  p.xgboost_home, p.xgboost_draw, p.xgboost_away,
+                  p.sentiment_home, p.sentiment_draw, p.sentiment_away,
+                  m.ft_result,
+                  p.home_team, p.away_team
+           FROM predictions p
+           JOIN matches m ON p.league = m.league
+                AND p.home_team = m.home_team
+                AND p.away_team = m.away_team
+                AND p.match_date = m.match_date
+           WHERE p.league = ? AND m.ft_result IS NOT NULL
+                 AND p.poisson_home IS NOT NULL
+                 AND p.elo_home IS NOT NULL""",
+        [league]
+    )
+
+    if not rows or len(rows) < 30:
+        logger.warning("Not enough settled predictions to train stacker: %d", len(rows) if rows else 0)
+        return None
+
+    # Build Elo ratings for elo_diff feature
+    try:
+        ratings = elo_model.build_ratings(league)
+    except Exception:
+        ratings = {}
+
+    X_rows = []
+    y = []
+    result_map = {"H": 0, "D": 1, "A": 2}
+
+    for row in rows:
+        features = []
+
+        # 12 model probability features (fill missing with neutral 0.33)
+        for model_prefix in ["poisson", "elo", "xgboost", "sentiment"]:
+            h = row.get(f"{model_prefix}_home") or 0.33
+            d = row.get(f"{model_prefix}_draw") or 0.33
+            a = row.get(f"{model_prefix}_away") or 0.33
+            features.extend([h, d, a])
+
+        # Elo difference
+        home_elo = ratings.get(row["home_team"], {}).get("elo", 1500)
+        away_elo = ratings.get(row["away_team"], {}).get("elo", 1500)
+        features.append(home_elo - away_elo)
+
+        # Model agreement score: std deviation of home_win predictions across models
+        home_probs = []
+        for model_prefix in ["poisson", "elo", "xgboost", "sentiment"]:
+            h = row.get(f"{model_prefix}_home")
+            if h is not None:
+                home_probs.append(h)
+        agreement = 1.0 - np.std(home_probs) if len(home_probs) > 1 else 0.5
+        features.append(agreement)
+
+        # Max probability across all models
+        all_probs = []
+        for model_prefix in ["poisson", "elo", "xgboost", "sentiment"]:
+            for suffix in ["home", "draw", "away"]:
+                val = row.get(f"{model_prefix}_{suffix}")
+                if val is not None:
+                    all_probs.append(val)
+        max_prob = max(all_probs) if all_probs else 0.33
+        features.append(max_prob)
+
+        X_rows.append(features)
+        y.append(result_map.get(row["ft_result"], 1))
+
+    X = np.array(X_rows)
+    y = np.array(y)
+
+    # Train with cross-validation to check quality
+    model = LogisticRegression(
+        multi_class="multinomial",
+        solver="lbfgs",
+        max_iter=1000,
+        C=1.0,
+        random_state=42,
+    )
+
+    try:
+        cv_scores = cross_val_score(model, X, y, cv=min(5, len(X) // 10), scoring="neg_log_loss")
+        avg_cv = -np.mean(cv_scores)
+        logger.info("Stacker CV log-loss: %.4f (samples: %d)", avg_cv, len(X))
+    except Exception as e:
+        logger.warning("Stacker CV failed (training anyway): %s", e)
+
+    # Train on all data
+    model.fit(X, y)
+
+    # Save the trained stacker
+    feature_names = (
+        ["poisson_h", "poisson_d", "poisson_a",
+         "elo_h", "elo_d", "elo_a",
+         "xgboost_h", "xgboost_d", "xgboost_a",
+         "sentiment_h", "sentiment_d", "sentiment_a",
+         "elo_diff", "model_agreement", "max_prob"]
+    )
+
+    os.makedirs(os.path.dirname(STACKER_PATH), exist_ok=True)
+    with open(STACKER_PATH, "wb") as f:
+        pickle.dump({"model": model, "features": feature_names, "league": league,
+                      "trained_at": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"),
+                      "sample_size": len(X)}, f)
+
+    logger.info("Stacker model trained on %d samples, saved to %s", len(X), STACKER_PATH)
+    return model
+
+
+def _stacker_predict(predictions, home_elo, away_elo):
+    """
+    Use the trained stacker to blend model predictions.
+    Returns (home_win, draw, away_win) probabilities or None if stacker unavailable.
+    """
+    if not os.path.exists(STACKER_PATH):
+        return None
+
+    try:
+        with open(STACKER_PATH, "rb") as f:
+            saved = pickle.load(f)
+        model = saved["model"]
+    except Exception as e:
+        logger.warning("Failed to load stacker model: %s", e)
+        return None
+
+    # Build feature vector
+    features = []
+
+    for model_name in ["poisson", "elo", "xgboost", "sentiment"]:
+        pred = predictions.get(model_name)
+        if pred:
+            features.extend([pred["home_win"], pred["draw"], pred["away_win"]])
+        else:
+            features.extend([0.33, 0.33, 0.33])
+
+    # Elo difference
+    features.append(home_elo - away_elo)
+
+    # Model agreement
+    home_probs = [p["home_win"] for p in predictions.values() if "home_win" in p]
+    agreement = 1.0 - np.std(home_probs) if len(home_probs) > 1 else 0.5
+    features.append(agreement)
+
+    # Max probability
+    all_probs = []
+    for p in predictions.values():
+        for key in ["home_win", "draw", "away_win"]:
+            if key in p:
+                all_probs.append(p[key])
+    max_prob = max(all_probs) if all_probs else 0.33
+    features.append(max_prob)
+
+    try:
+        X = np.array([features])
+        probs = model.predict_proba(X)[0]
+        return {
+            "home_win": float(probs[0]),
+            "draw": float(probs[1]),
+            "away_win": float(probs[2]),
+        }
+    except Exception as e:
+        logger.warning("Stacker prediction failed: %s", e)
+        return None
 
 
 def predict(home_team, away_team, league="PL", match_date=None):
@@ -126,22 +322,42 @@ def predict(home_team, away_team, league="PL", match_date=None):
         logger.error("All models failed for %s vs %s", home_team, away_team)
         return None
 
-    # Weighted blend (re-normalise weights based on available models)
-    home_win = 0
-    draw = 0
-    away_win = 0
+    # Get Elo values for stacker context
+    elo_pred = predictions.get("elo")
+    home_elo = elo_pred["details"].get("home_elo", 1500) if elo_pred and "details" in elo_pred else 1500
+    away_elo = elo_pred["details"].get("away_elo", 1500) if elo_pred and "details" in elo_pred else 1500
 
-    for model_name, pred in predictions.items():
-        w = weights[model_name] / available_weight  # re-normalised weight
-        home_win += pred["home_win"] * w
-        draw += pred["draw"] * w
-        away_win += pred["away_win"] * w
+    # Try stacker first, fall back to weighted average
+    blend_method = "weighted"
+    stacker_result = None
+    try:
+        stacker_result = _stacker_predict(predictions, home_elo, away_elo)
+    except Exception as e:
+        logger.debug("Stacker unavailable, using weighted average: %s", e)
+
+    if stacker_result:
+        home_win = stacker_result["home_win"]
+        draw = stacker_result["draw"]
+        away_win = stacker_result["away_win"]
+        blend_method = "stacker"
+    else:
+        # Weighted blend (re-normalise weights based on available models)
+        home_win = 0
+        draw = 0
+        away_win = 0
+
+        for model_name, pred in predictions.items():
+            w = weights[model_name] / available_weight  # re-normalised weight
+            home_win += pred["home_win"] * w
+            draw += pred["draw"] * w
+            away_win += pred["away_win"] * w
 
     # Ensure probabilities sum to 1
     total = home_win + draw + away_win
-    home_win /= total
-    draw /= total
-    away_win /= total
+    if total > 0:
+        home_win /= total
+        draw /= total
+        away_win /= total
 
     # Over/Under and BTTS from Poisson (only Poisson can do scoreline matrix)
     over25 = predictions.get("poisson", {}).get("over25")
@@ -153,7 +369,7 @@ def predict(home_team, away_team, league="PL", match_date=None):
     confidences = []
     for model_name, pred in predictions.items():
         if "confidence" in pred:
-            w = weights[model_name] / available_weight
+            w = weights[model_name] / available_weight if available_weight > 0 else 0.25
             confidences.append(pred["confidence"] * w)
     confidence = sum(confidences) if confidences else 0.5
 
@@ -171,6 +387,7 @@ def predict(home_team, away_team, league="PL", match_date=None):
         "away_win": round(away_win, 4),
         "predicted_outcome": predicted,
         "confidence": round(confidence, 4),
+        "method": blend_method,
         "over25": round(over25, 4) if over25 else None,
         "btts": round(btts, 4) if btts else None,
         "most_likely_score": most_likely_score,

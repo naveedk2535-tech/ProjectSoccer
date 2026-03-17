@@ -201,6 +201,28 @@ def extract_features(home_team, away_team, league="PL", match_date=None):
     # 25. Congestion differential (positive = home more fatigued)
     features["congestion_diff"] = features.get("home_matches_14d", 2) - features.get("away_matches_14d", 2)
 
+    # 27-30. Shot accuracy and average shots per game
+    for team, prefix in [(home_team, "home"), (away_team, "away")]:
+        try:
+            shots_data = db.fetch_one(
+                """SELECT AVG(CASE WHEN home_team = ? THEN CAST(home_shots_target AS FLOAT) / NULLIF(home_shots, 0)
+                               WHEN away_team = ? THEN CAST(away_shots_target AS FLOAT) / NULLIF(away_shots, 0) END) as ratio,
+                      AVG(CASE WHEN home_team = ? THEN home_shots
+                               WHEN away_team = ? THEN away_shots END) as avg_shots
+                   FROM matches WHERE league = ? AND (home_team = ? OR away_team = ?)
+                   AND home_shots IS NOT NULL AND home_shots > 0""",
+                [team, team, team, team, league, team, team]
+            )
+            features[f"{prefix}_shot_accuracy"] = round(shots_data["ratio"], 3) if shots_data and shots_data["ratio"] else 0.33
+            features[f"{prefix}_avg_shots"] = round(shots_data["avg_shots"], 1) if shots_data and shots_data["avg_shots"] else 12.0
+        except Exception:
+            features[f"{prefix}_shot_accuracy"] = 0.33
+            features[f"{prefix}_avg_shots"] = 12.0
+
+    # 31-32. Opponent-adjusted form
+    features["home_opp_adj_form"] = home_r.get("opponent_adjusted_form", 0.5)
+    features["away_opp_adj_form"] = away_r.get("opponent_adjusted_form", 0.5)
+
     # 26. Odds movement (change in best available home odds between earliest and latest fetch)
     features["odds_movement"] = 0.0
     if match_date:

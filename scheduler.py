@@ -13,6 +13,7 @@ Usage:
     python scheduler.py --task predictions    # generate predictions for upcoming
     python scheduler.py --task retrain        # retrain XGBoost model
     python scheduler.py --task optimize_weights  # optimize ensemble weights
+    python scheduler.py --task train_stacker     # train stacking ensemble meta-model
 """
 import argparse
 import logging
@@ -272,12 +273,29 @@ def task_optimize_weights():
             logger.error("  %s: Weight optimization error: %s", league["name"], e)
 
 
+def task_train_stacker():
+    """Train the stacking ensemble meta-model for each enabled league."""
+    logger.info("Training stacking ensemble...")
+    for code, league in config.LEAGUES.items():
+        if not league["enabled"]:
+            continue
+        try:
+            result = ensemble.train_stacker(code)
+            if result:
+                logger.info("  %s: Stacker trained successfully", league["name"])
+            else:
+                logger.info("  %s: Not enough data to train stacker", league["name"])
+        except Exception as e:
+            logger.error("  %s: Stacker training error: %s", league["name"], e)
+
+
 def run_weekly():
-    """Weekly task: CSV update + ratings rebuild + retrain + optimize + predictions."""
+    """Weekly task: CSV update + ratings rebuild + retrain + optimize + stacker + predictions."""
     task_csv()
     task_ratings()
     task_retrain()
     task_optimize_weights()
+    task_train_stacker()
     task_predictions()
 
 
@@ -290,6 +308,7 @@ def run_all():
     task_ratings()
     task_retrain()
     task_optimize_weights()
+    task_train_stacker()
     task_predictions()
 
 
@@ -300,7 +319,7 @@ if __name__ == "__main__":
     parser.add_argument("--task", required=True,
                         choices=["daily", "weekly", "all", "fixtures", "odds",
                                  "sentiment", "csv", "ratings", "predictions",
-                                 "retrain", "optimize_weights", "tracker"],
+                                 "retrain", "optimize_weights", "train_stacker", "tracker"],
                         help="Which task to run")
     args = parser.parse_args()
 
@@ -316,6 +335,7 @@ if __name__ == "__main__":
         "predictions": task_predictions,
         "retrain": task_retrain,
         "optimize_weights": task_optimize_weights,
+        "train_stacker": task_train_stacker,
         "tracker": task_tracker,
     }
 

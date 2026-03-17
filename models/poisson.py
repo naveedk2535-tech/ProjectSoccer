@@ -161,6 +161,51 @@ def calculate_second_half_strength(league="PL"):
     return multipliers
 
 
+def calculate_synthetic_xg(league="PL"):
+    """
+    Calculate synthetic expected goals from shots data.
+    Formula: xG = (shots_on_target * 0.35) + ((shots - shots_on_target) * 0.03)
+    Falls back to actual goals when shots data is missing.
+
+    Returns dict keyed by (home_team, away_team, match_date) with home_xg, away_xg.
+    """
+    matches = db.fetch_all(
+        """SELECT home_team, away_team, match_date,
+                  ft_home_goals, ft_away_goals,
+                  home_shots, away_shots,
+                  home_shots_target, away_shots_target
+           FROM matches WHERE league = ? AND ft_home_goals IS NOT NULL
+           ORDER BY match_date ASC""",
+        [league]
+    )
+    if not matches:
+        return {}
+
+    xg_map = {}
+    for m in matches:
+        key = (m["home_team"], m["away_team"], m["match_date"])
+
+        # Home xG
+        hs = m.get("home_shots")
+        hst = m.get("home_shots_target")
+        if hs and hst and hs > 0:
+            home_xg = (hst * 0.22) + ((hs - hst) * 0.02)
+        else:
+            home_xg = m["ft_home_goals"]
+
+        # Away xG
+        as_ = m.get("away_shots")
+        ast_ = m.get("away_shots_target")
+        if as_ and ast_ and as_ > 0:
+            away_xg = (ast_ * 0.22) + ((as_ - ast_) * 0.02)
+        else:
+            away_xg = m["ft_away_goals"]
+
+        xg_map[key] = {"home_xg": home_xg, "away_xg": away_xg}
+
+    return xg_map
+
+
 def calculate_league_averages(league="PL", season=None):
     """Calculate league-wide average goals per game (home and away)."""
     query = "SELECT * FROM matches WHERE league = ? AND ft_home_goals IS NOT NULL"
@@ -184,7 +229,7 @@ def calculate_league_averages(league="PL", season=None):
     }
 
 
-def calculate_team_strengths(league="PL", time_decay=True):
+def calculate_team_strengths(league="PL", time_decay=True, use_xg=False):
     """
     Calculate attack strength and defence weakness for each team.
 
@@ -192,6 +237,7 @@ def calculate_team_strengths(league="PL", time_decay=True):
     Defence Weakness = Team's avg goals conceded / League avg goals conceded
 
     With time decay: recent matches weighted more heavily.
+    When use_xg=True, uses synthetic xG instead of raw goals where shots data is available.
     """
     matches = db.fetch_all(
         """SELECT * FROM matches WHERE league = ? AND ft_home_goals IS NOT NULL
@@ -204,6 +250,14 @@ def calculate_team_strengths(league="PL", time_decay=True):
     avgs = calculate_league_averages(league)
     if avgs["total_matches"] < config.POISSON_SETTINGS["min_matches"]:
         return {}
+
+    # Load synthetic xG map if requested
+    xg_map = {}
+    if use_xg:
+        try:
+            xg_map = calculate_synthetic_xg(league)
+        except Exception as e:
+            logger.warning("Failed to calculate synthetic xG, falling back to goals: %s", e)
 
     # Aggregate per team with optional time decay
     team_stats = {}
@@ -229,15 +283,25 @@ def calculate_team_strengths(league="PL", time_decay=True):
                     "total_weight_home": 0, "total_weight_away": 0,
                 }
 
+        # Use synthetic xG when available, otherwise fall back to actual goals
+        key = (home, away, m["match_date"])
+        xg_data = xg_map.get(key)
+        if xg_data:
+            home_goals_value = xg_data["home_xg"]
+            away_goals_value = xg_data["away_xg"]
+        else:
+            home_goals_value = m["ft_home_goals"]
+            away_goals_value = m["ft_away_goals"]
+
         # Home team stats
-        team_stats[home]["home_scored"] += m["ft_home_goals"] * weight
-        team_stats[home]["home_conceded"] += m["ft_away_goals"] * weight
+        team_stats[home]["home_scored"] += home_goals_value * weight
+        team_stats[home]["home_conceded"] += away_goals_value * weight
         team_stats[home]["home_games"] += 1
         team_stats[home]["total_weight_home"] += weight
 
         # Away team stats
-        team_stats[away]["away_scored"] += m["ft_away_goals"] * weight
-        team_stats[away]["away_conceded"] += m["ft_home_goals"] * weight
+        team_stats[away]["away_scored"] += away_goals_value * weight
+        team_stats[away]["away_conceded"] += home_goals_value * weight
         team_stats[away]["away_games"] += 1
         team_stats[away]["total_weight_away"] += weight
 
