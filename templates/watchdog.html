@@ -1,0 +1,333 @@
+{% extends "base.html" %}
+{% block title %}Watchdog{% endblock %}
+
+{% block content %}
+<div x-data="watchdogApp()" x-init="init()" x-cloak>
+
+    <!-- Header -->
+    <div class="flex items-center justify-between mb-6">
+        <div class="flex items-center space-x-4">
+            <h1 class="text-2xl font-bold text-slate-800">System Watchdog</h1>
+            <!-- Help button -->
+            <button @click="showHelp = !showHelp"
+                    class="w-7 h-7 rounded-full bg-slate-200 hover:bg-slate-300 text-slate-600 text-sm font-bold flex items-center justify-center transition">
+                ?
+            </button>
+        </div>
+        <button @click="runCheck()"
+                :disabled="running"
+                class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg shadow transition disabled:opacity-50 disabled:cursor-not-allowed">
+            <span x-show="!running">Run Check Now</span>
+            <span x-show="running">Running...</span>
+        </button>
+    </div>
+
+    <!-- Help Panel -->
+    <div x-show="showHelp" x-transition class="card rounded-xl p-5 mb-6 border-l-4 border-blue-400">
+        <h3 class="font-semibold text-slate-800 mb-2">What does the Watchdog do?</h3>
+        <p class="text-sm text-slate-600 leading-relaxed">
+            The Watchdog monitors your ProjectSoccer installation for potential issues across five categories:
+            <strong>App Health</strong> (database connectivity, size, tables),
+            <strong>Security</strong> (.env file, .gitignore, hardcoded keys, suspicious files),
+            <strong>Data Integrity</strong> (row counts, sudden drops, league coverage),
+            <strong>API Keys</strong> (presence and validity of required keys), and
+            <strong>Model Health</strong> (XGBoost model existence, freshness, prediction quality).
+            Each check returns pass, warn, or critical status. Critical issues trigger an alert flag.
+        </p>
+        <button @click="showHelp = false" class="mt-3 text-xs text-blue-600 hover:underline">Close</button>
+    </div>
+
+    <!-- Overall Status Banner -->
+    <div class="card rounded-xl p-6 mb-6"
+         :class="{
+             'border-l-4 border-green-500': data.overall_status === 'pass',
+             'border-l-4 border-yellow-500': data.overall_status === 'warn',
+             'border-l-4 border-red-500': data.overall_status === 'critical',
+             'border-l-4 border-slate-300': !data.overall_status
+         }">
+        <div class="flex items-center justify-between">
+            <div class="flex items-center space-x-4">
+                <!-- Status icon -->
+                <div class="w-14 h-14 rounded-xl flex items-center justify-center text-2xl font-bold"
+                     :class="{
+                         'bg-green-100 text-green-600': data.overall_status === 'pass',
+                         'bg-yellow-100 text-yellow-600': data.overall_status === 'warn',
+                         'bg-red-100 text-red-600': data.overall_status === 'critical',
+                         'bg-slate-100 text-slate-400': !data.overall_status
+                     }">
+                    <span x-show="data.overall_status === 'pass'">&#10003;</span>
+                    <span x-show="data.overall_status === 'warn'">!</span>
+                    <span x-show="data.overall_status === 'critical'">&#10007;</span>
+                    <span x-show="!data.overall_status">-</span>
+                </div>
+                <div>
+                    <p class="text-lg font-bold text-slate-800"
+                       x-text="data.overall_status ? data.overall_status.toUpperCase() : 'No Data'"></p>
+                    <p class="text-xs text-slate-500">
+                        Last check: <span x-text="data.last_check ? new Date(data.last_check).toLocaleString() : 'Never'"></span>
+                    </p>
+                </div>
+            </div>
+            <div class="flex items-center space-x-6 text-center">
+                <div>
+                    <p class="text-2xl font-bold text-green-600" x-text="data.passed || 0"></p>
+                    <p class="text-xs text-slate-500">Passed</p>
+                </div>
+                <div>
+                    <p class="text-2xl font-bold text-yellow-500" x-text="data.warnings || 0"></p>
+                    <p class="text-xs text-slate-500">Warnings</p>
+                </div>
+                <div>
+                    <p class="text-2xl font-bold text-red-500" x-text="data.critical || 0"></p>
+                    <p class="text-xs text-slate-500">Critical</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Check Category Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 mb-6">
+        <template x-for="cat in categories" :key="cat.key">
+            <div class="card rounded-xl overflow-hidden"
+                 :class="categoryBorderClass(cat.key)">
+                <div class="px-5 py-3 border-b border-slate-100 flex items-center justify-between">
+                    <h3 class="font-semibold text-slate-800 text-sm" x-text="cat.label"></h3>
+                    <span class="text-xs font-mono px-2 py-0.5 rounded-full"
+                          :class="categoryBadgeClass(cat.key)"
+                          x-text="categoryStatus(cat.key)"></span>
+                </div>
+                <div class="px-5 py-3 space-y-2">
+                    <template x-for="check in checksForCategory(cat.key)" :key="check.name">
+                        <div class="flex items-start space-x-2">
+                            <span class="mt-0.5 flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold"
+                                  :class="{
+                                      'bg-green-100 text-green-600': check.status === 'pass',
+                                      'bg-yellow-100 text-yellow-600': check.status === 'warn',
+                                      'bg-red-100 text-red-600': check.status === 'critical'
+                                  }">
+                                <span x-show="check.status === 'pass'">&#10003;</span>
+                                <span x-show="check.status === 'warn'">!</span>
+                                <span x-show="check.status === 'critical'">&#10007;</span>
+                            </span>
+                            <div class="min-w-0">
+                                <p class="text-sm font-medium text-slate-700" x-text="check.name"></p>
+                                <p class="text-xs text-slate-500 break-words" x-text="check.message"></p>
+                            </div>
+                        </div>
+                    </template>
+                    <p x-show="checksForCategory(cat.key).length === 0" class="text-xs text-slate-400 italic">No checks run yet.</p>
+                </div>
+            </div>
+        </template>
+    </div>
+
+    <!-- Configuration Section -->
+    <details class="card rounded-xl mb-6">
+        <summary class="px-5 py-3 cursor-pointer text-sm font-semibold text-slate-800 hover:bg-slate-50 transition rounded-xl select-none">
+            Configuration
+        </summary>
+        <div class="px-5 pb-5 pt-2 border-t border-slate-100">
+            <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+                <div>
+                    <label class="block text-xs text-slate-500 mb-1">Min Matches</label>
+                    <input type="number" x-model.number="configData.min_matches"
+                           class="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs text-slate-500 mb-1">Min Predictions</label>
+                    <input type="number" x-model.number="configData.min_predictions"
+                           class="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs text-slate-500 mb-1">Min Odds</label>
+                    <input type="number" x-model.number="configData.min_odds"
+                           class="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs text-slate-500 mb-1">Max DB Size (MB)</label>
+                    <input type="number" x-model.number="configData.max_db_size_mb"
+                           class="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs text-slate-500 mb-1">Max Model Age (days)</label>
+                    <input type="number" x-model.number="configData.max_model_age_days"
+                           class="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs text-slate-500 mb-1">Count Drop Threshold</label>
+                    <input type="number" step="0.1" x-model.number="configData.count_drop_threshold"
+                           class="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none">
+                </div>
+            </div>
+            <div class="mt-4 flex items-center space-x-3">
+                <button @click="saveConfig()"
+                        class="px-4 py-1.5 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg shadow transition">
+                    Save Configuration
+                </button>
+                <span x-show="configSaved" x-transition class="text-xs text-green-600 font-medium">Saved!</span>
+            </div>
+        </div>
+    </details>
+
+    <!-- Recent Check History -->
+    <div class="card rounded-xl">
+        <div class="px-5 py-3 border-b border-slate-100">
+            <h3 class="font-semibold text-slate-800 text-sm">Recent Check History</h3>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm" x-show="history.length > 0">
+                <thead>
+                    <tr class="text-left text-xs text-slate-500 border-b border-slate-100">
+                        <th class="px-5 py-2">Time</th>
+                        <th class="px-5 py-2">Status</th>
+                        <th class="px-5 py-2">Passed</th>
+                        <th class="px-5 py-2">Warnings</th>
+                        <th class="px-5 py-2">Critical</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <template x-for="entry in history" :key="entry.timestamp">
+                        <tr class="border-b border-slate-50 hover:bg-slate-50 transition">
+                            <td class="px-5 py-2 text-xs font-mono text-slate-600" x-text="new Date(entry.timestamp).toLocaleString()"></td>
+                            <td class="px-5 py-2">
+                                <span class="text-xs font-medium px-2 py-0.5 rounded-full"
+                                      :class="{
+                                          'bg-green-100 text-green-700': entry.overall === 'pass',
+                                          'bg-yellow-100 text-yellow-700': entry.overall === 'warn',
+                                          'bg-red-100 text-red-700': entry.overall === 'critical'
+                                      }"
+                                      x-text="entry.overall.toUpperCase()"></span>
+                            </td>
+                            <td class="px-5 py-2 text-green-600 font-medium" x-text="entry.passed"></td>
+                            <td class="px-5 py-2 text-yellow-500 font-medium" x-text="entry.warnings"></td>
+                            <td class="px-5 py-2 text-red-500 font-medium" x-text="entry.critical"></td>
+                        </tr>
+                    </template>
+                </tbody>
+            </table>
+            <p x-show="history.length === 0" class="px-5 py-4 text-xs text-slate-400 italic">No check history yet. Run a check to populate.</p>
+        </div>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function watchdogApp() {
+    return {
+        data: {},
+        configData: {},
+        history: [],
+        running: false,
+        showHelp: false,
+        configSaved: false,
+        categories: [
+            { key: 'health', label: 'App Health' },
+            { key: 'security', label: 'Security' },
+            { key: 'data', label: 'Data Integrity' },
+            { key: 'api', label: 'API Keys' },
+            { key: 'model', label: 'Model Health' },
+        ],
+
+        async init() {
+            await this.loadData();
+            await this.loadConfig();
+            await this.loadHistory();
+        },
+
+        async loadData() {
+            try {
+                const resp = await fetch('/api/watchdog');
+                if (resp.ok) this.data = await resp.json();
+            } catch (e) {
+                console.error('Failed to load watchdog data', e);
+            }
+        },
+
+        async loadConfig() {
+            try {
+                const resp = await fetch('/api/watchdog/config');
+                if (resp.ok) this.configData = await resp.json();
+            } catch (e) {
+                console.error('Failed to load config', e);
+            }
+        },
+
+        async loadHistory() {
+            try {
+                const resp = await fetch('/api/watchdog');
+                if (resp.ok) {
+                    const d = await resp.json();
+                    this.history = d.history || [];
+                }
+            } catch (e) {
+                console.error('Failed to load history', e);
+            }
+        },
+
+        async runCheck() {
+            this.running = true;
+            try {
+                const resp = await fetch('/api/watchdog/run', { method: 'POST' });
+                if (resp.ok) {
+                    const result = await resp.json();
+                    this.data = result;
+                    await this.loadHistory();
+                }
+            } catch (e) {
+                console.error('Watchdog run failed', e);
+            } finally {
+                this.running = false;
+            }
+        },
+
+        async saveConfig() {
+            this.configSaved = false;
+            try {
+                const resp = await fetch('/api/watchdog/config', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(this.configData),
+                });
+                if (resp.ok) {
+                    this.configSaved = true;
+                    setTimeout(() => this.configSaved = false, 3000);
+                }
+            } catch (e) {
+                console.error('Failed to save config', e);
+            }
+        },
+
+        checksForCategory(cat) {
+            if (!this.data.results) return [];
+            return this.data.results.filter(r => r.category === cat);
+        },
+
+        categoryStatus(cat) {
+            const checks = this.checksForCategory(cat);
+            if (checks.length === 0) return 'N/A';
+            if (checks.some(c => c.status === 'critical')) return 'CRITICAL';
+            if (checks.some(c => c.status === 'warn')) return 'WARN';
+            return 'PASS';
+        },
+
+        categoryBorderClass(cat) {
+            const status = this.categoryStatus(cat);
+            if (status === 'CRITICAL') return 'border-l-4 border-red-500';
+            if (status === 'WARN') return 'border-l-4 border-yellow-500';
+            if (status === 'PASS') return 'border-l-4 border-green-500';
+            return 'border-l-4 border-slate-300';
+        },
+
+        categoryBadgeClass(cat) {
+            const status = this.categoryStatus(cat);
+            if (status === 'CRITICAL') return 'bg-red-100 text-red-700';
+            if (status === 'WARN') return 'bg-yellow-100 text-yellow-700';
+            if (status === 'PASS') return 'bg-green-100 text-green-700';
+            return 'bg-slate-100 text-slate-500';
+        },
+    };
+}
+</script>
+{% endblock %}

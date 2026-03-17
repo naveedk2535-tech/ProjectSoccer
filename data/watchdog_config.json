@@ -1,0 +1,14 @@
+{
+  "min_matches": 1000,
+  "min_predictions": 5,
+  "min_odds": 100,
+  "max_db_size_mb": 100,
+  "max_model_age_days": 7,
+  "count_drop_threshold": 0.5,
+  "enabled": true,
+  "last_counts": {
+    "matches": 2954,
+    "predictions": 29,
+    "odds": 1839
+  }
+}

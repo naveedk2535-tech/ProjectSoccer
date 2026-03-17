@@ -5,6 +5,7 @@ Main entry point for the soccer prediction dashboard.
 import logging
 import json
 import os
+import sys
 from datetime import datetime
 from collections import defaultdict
 
@@ -1368,6 +1369,125 @@ def form_badge_filter(result):
 def tojson_safe_filter(value):
     """Safely convert to JSON for JavaScript."""
     return json.dumps(value, default=str)
+
+
+# ---------------------------------------------------------------------------
+# Watchdog endpoints
+# ---------------------------------------------------------------------------
+import subprocess
+
+WATCHDOG_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
+WATCHDOG_LAST = os.path.join(WATCHDOG_DIR, "watchdog_last.json")
+WATCHDOG_CONFIG = os.path.join(WATCHDOG_DIR, "watchdog_config.json")
+WATCHDOG_LOG = os.path.join(WATCHDOG_DIR, "watchdog.log")
+WATCHDOG_SCRIPT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "watchdog.py")
+
+
+def _read_json_file(path, default=None):
+    try:
+        with open(path, "r") as f:
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return default if default is not None else {}
+
+
+def _read_log_history(limit=10):
+    """Read last N entries from the watchdog JSON-lines log."""
+    entries = []
+    try:
+        with open(WATCHDOG_LOG, "r") as f:
+            for line in f:
+                line = line.strip()
+                if line:
+                    try:
+                        entries.append(json.loads(line))
+                    except json.JSONDecodeError:
+                        pass
+    except FileNotFoundError:
+        pass
+    return entries[-limit:][::-1]  # most recent first
+
+
+@app.route("/watchdog")
+@login_required
+def watchdog_page():
+    return render_template("watchdog.html", now=datetime.utcnow())
+
+
+@app.route("/api/watchdog")
+@login_required
+def api_watchdog():
+    data = _read_json_file(WATCHDOG_LAST, {})
+    data["history"] = _read_log_history(10)
+    return jsonify(data)
+
+
+@app.route("/api/watchdog/config", methods=["GET"])
+@login_required
+def api_watchdog_config_get():
+    cfg = _read_json_file(WATCHDOG_CONFIG, {
+        "min_matches": 1000,
+        "min_predictions": 5,
+        "min_odds": 100,
+        "max_db_size_mb": 100,
+        "max_model_age_days": 7,
+        "count_drop_threshold": 0.5,
+        "enabled": True,
+        "last_counts": {},
+    })
+    return jsonify(cfg)
+
+
+@app.route("/api/watchdog/config", methods=["POST"])
+@login_required
+def api_watchdog_config_post():
+    # Only admin can update config
+    if session.get("username") != "admin":
+        return jsonify({"error": "Admin access required"}), 403
+
+    payload = request.get_json(silent=True)
+    if not payload:
+        return jsonify({"error": "Invalid JSON"}), 400
+
+    # Load existing config and update allowed fields
+    cfg = _read_json_file(WATCHDOG_CONFIG, {})
+    allowed = ["min_matches", "min_predictions", "min_odds",
+               "max_db_size_mb", "max_model_age_days", "count_drop_threshold", "enabled"]
+    for key in allowed:
+        if key in payload:
+            val = payload[key]
+            if key == "enabled":
+                cfg[key] = bool(val)
+            elif key == "count_drop_threshold":
+                cfg[key] = max(0.0, min(1.0, float(val)))
+            else:
+                cfg[key] = max(0, int(val))
+
+    os.makedirs(WATCHDOG_DIR, exist_ok=True)
+    with open(WATCHDOG_CONFIG, "w") as f:
+        json.dump(cfg, f, indent=2)
+
+    return jsonify({"status": "ok", "config": cfg})
+
+
+@app.route("/api/watchdog/run", methods=["POST"])
+@login_required
+def api_watchdog_run():
+    try:
+        result = subprocess.run(
+            [sys.executable, WATCHDOG_SCRIPT],
+            capture_output=True, text=True, timeout=60,
+            cwd=os.path.dirname(os.path.abspath(__file__)),
+        )
+    except subprocess.TimeoutExpired:
+        return jsonify({"error": "Watchdog timed out"}), 504
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+    # Read fresh results
+    data = _read_json_file(WATCHDOG_LAST, {})
+    data["history"] = _read_log_history(10)
+    return jsonify(data)
 
 
 if __name__ == "__main__":
