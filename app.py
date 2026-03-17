@@ -152,6 +152,17 @@ def dashboard():
         # Match count
         match_count = football_data_uk.get_match_count(code)
 
+        # Recent results (last 5 completed matches)
+        recent_results = db.fetch_all(
+            """SELECT m.*, p.ensemble_home, p.ensemble_draw, p.ensemble_away, p.confidence
+               FROM matches m
+               LEFT JOIN predictions p ON m.league = p.league AND m.home_team = p.home_team
+                   AND m.away_team = p.away_team AND m.match_date = p.match_date
+               WHERE m.league = ? AND m.ft_result IS NOT NULL
+               ORDER BY m.match_date DESC LIMIT 5""",
+            [code]
+        )
+
         leagues_data[code] = {
             "config": lg_config,
             "fixtures": fixtures,
@@ -159,6 +170,7 @@ def dashboard():
             "value_bets": value_bets,
             "standings": standings,
             "match_count": match_count,
+            "recent_results": recent_results,
         }
 
         total_matches += match_count
