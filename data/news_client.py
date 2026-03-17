@@ -101,10 +101,11 @@ def fetch_all_teams(league="PL"):
         return {}
     record_call("newsapi", f"bulk_pull/{league}")
 
-    from data.reddit_client import TEAM_SEARCH_TERMS
+    from data.reddit_client import LEAGUE_TEAM_SEARCH
 
+    league_teams = LEAGUE_TEAM_SEARCH.get(league, LEAGUE_TEAM_SEARCH.get("PL", {}))
     results = {}
-    for team in TEAM_SEARCH_TERMS:
+    for team in league_teams:
         news = fetch_team_news(team, league)
         if news:
             results[team] = news

@@ -11,29 +11,81 @@ import config
 
 logger = logging.getLogger(__name__)
 
-# Team search terms (handle nicknames and abbreviations)
-TEAM_SEARCH_TERMS = {
-    "Arsenal": ["arsenal", "gunners"],
-    "Aston Villa": ["aston villa", "villa"],
-    "AFC Bournemouth": ["bournemouth", "cherries"],
-    "Brentford": ["brentford", "bees"],
-    "Brighton & Hove Albion": ["brighton", "seagulls"],
-    "Chelsea": ["chelsea", "blues"],
-    "Crystal Palace": ["crystal palace", "palace", "eagles"],
-    "Everton": ["everton", "toffees"],
-    "Fulham": ["fulham", "cottagers"],
-    "Ipswich Town": ["ipswich"],
-    "Leicester City": ["leicester", "foxes"],
-    "Liverpool": ["liverpool", "reds", "lfc"],
-    "Manchester City": ["man city", "manchester city", "city", "mcfc"],
-    "Manchester United": ["man united", "manchester united", "mufc", "red devils"],
-    "Newcastle United": ["newcastle", "magpies", "nufc"],
-    "Nottingham Forest": ["nottingham forest", "forest", "nffc"],
-    "Southampton": ["southampton", "saints"],
-    "Tottenham": ["tottenham", "spurs", "thfc"],
-    "West Ham United": ["west ham", "hammers", "whufc"],
-    "Wolverhampton": ["wolves", "wolverhampton"],
+# Team search terms per league (handle nicknames and abbreviations)
+LEAGUE_TEAM_SEARCH = {
+    "PL": {
+        "Arsenal": ["arsenal", "gunners"],
+        "Aston Villa": ["aston villa", "villa"],
+        "AFC Bournemouth": ["bournemouth", "cherries"],
+        "Brentford": ["brentford"],
+        "Brighton & Hove Albion": ["brighton", "seagulls"],
+        "Chelsea": ["chelsea"],
+        "Crystal Palace": ["crystal palace", "palace"],
+        "Everton": ["everton", "toffees"],
+        "Fulham": ["fulham"],
+        "Ipswich Town": ["ipswich"],
+        "Leeds United": ["leeds united", "leeds"],
+        "Leicester City": ["leicester", "foxes"],
+        "Liverpool": ["liverpool", "lfc"],
+        "Manchester City": ["manchester city", "man city"],
+        "Manchester United": ["manchester united", "man united"],
+        "Newcastle United": ["newcastle", "magpies"],
+        "Nottingham Forest": ["nottingham forest", "forest"],
+        "Southampton": ["southampton", "saints"],
+        "Sunderland": ["sunderland"],
+        "Tottenham": ["tottenham", "spurs"],
+        "West Ham United": ["west ham", "hammers"],
+        "Wolverhampton": ["wolves", "wolverhampton"],
+        "Burnley": ["burnley"],
+    },
+    "PD": {
+        "Real Madrid": ["real madrid"],
+        "Barcelona": ["barcelona", "barca"],
+        "Atletico Madrid": ["atletico madrid", "atletico"],
+        "Sevilla": ["sevilla fc"],
+        "Real Sociedad": ["real sociedad"],
+        "Real Betis": ["real betis", "betis"],
+        "Villarreal": ["villarreal"],
+        "Ath Bilbao": ["athletic bilbao", "athletic club"],
+        "Valencia": ["valencia cf"],
+        "Celta Vigo": ["celta vigo", "celta"],
+        "Osasuna": ["osasuna"],
+        "Getafe": ["getafe"],
+        "Mallorca": ["mallorca"],
+        "Alaves": ["alaves", "deportivo alaves"],
+        "Girona": ["girona fc", "girona"],
+        "Rayo Vallecano": ["rayo vallecano"],
+        "Espanyol": ["espanyol"],
+        "Leganes": ["leganes"],
+        "Valladolid": ["valladolid"],
+        "Las Palmas": ["las palmas"],
+    },
+    "BL1": {
+        "Bayern Munich": ["bayern munich", "bayern"],
+        "Dortmund": ["borussia dortmund", "dortmund", "bvb"],
+        "RB Leipzig": ["rb leipzig", "leipzig"],
+        "Leverkusen": ["bayer leverkusen", "leverkusen"],
+        "Stuttgart": ["vfb stuttgart", "stuttgart"],
+        "Ein Frankfurt": ["eintracht frankfurt", "frankfurt"],
+        "Freiburg": ["sc freiburg", "freiburg"],
+        "Wolfsburg": ["wolfsburg"],
+        "Union Berlin": ["union berlin"],
+        "Hoffenheim": ["hoffenheim"],
+        "Werder Bremen": ["werder bremen"],
+        "Augsburg": ["augsburg"],
+        "Mainz": ["mainz 05", "mainz"],
+        "Bochum": ["bochum"],
+        "Heidenheim": ["heidenheim"],
+        "St Pauli": ["st pauli"],
+        "Holstein Kiel": ["holstein kiel", "kiel"],
+        "M'gladbach": ["gladbach", "monchengladbach"],
+    },
 }
+
+# Flat map for backward compatibility
+TEAM_SEARCH_TERMS = {}
+for league_teams in LEAGUE_TEAM_SEARCH.values():
+    TEAM_SEARCH_TERMS.update(league_teams)
 
 
 def _get_praw():
@@ -142,7 +194,8 @@ def fetch_all_teams(league="PL"):
         return {}
     record_call("reddit", f"bulk_pull/{league}")
     results = {}
-    for team in TEAM_SEARCH_TERMS:
+    league_teams = LEAGUE_TEAM_SEARCH.get(league, LEAGUE_TEAM_SEARCH.get("PL", {}))
+    for team in league_teams:
         sent = fetch_team_sentiment(team, league)
         if sent:
             results[team] = sent
