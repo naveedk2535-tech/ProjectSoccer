@@ -462,6 +462,63 @@ def calculate_value(prediction, odds_data):
                 "confidence": prediction["confidence"],
             })
 
+    # Combined Edge Signal: when underdog has edge, draw+underdog combined is strong
+    # "If our model says the underdog is tougher than market thinks,
+    #  they're likely to compete — draw OR win covers the model's insight"
+    combined_signals = []
+
+    # Check if away team has edge (underdog scenario when home is favoured)
+    away_vb = [v for v in value_bets if v["bet_type"] == "away_win"]
+    if away_vb and prediction["home_win"] > prediction["away_win"]:
+        # Away is underdog but has value — combine draw + away
+        combined_prob = prediction["draw"] + prediction["away_win"]
+        # Find best bookmaker implied for home (to compare)
+        home_implied = 0
+        for bookie in odds_data.get("all_bookmakers", []):
+            h = bookie.get("home_odds", 0) or 0
+            if h > 0:
+                home_implied = max(home_implied, 1 / h)
+        lay_home_prob = 1 - home_implied if home_implied > 0 else 0
+        combined_edge = (combined_prob - lay_home_prob) * 100 if lay_home_prob > 0 else 0
+
+        combined_signals.append({
+            "type": "lay_favourite",
+            "label": "Underdog Edge: Draw + Away Win",
+            "combined_probability": round(combined_prob, 4),
+            "combined_percent": round(combined_prob * 100, 1),
+            "market_probability": round(lay_home_prob, 4),
+            "edge": round(combined_edge, 1),
+            "insight": f"Model says {prediction['away_win']*100:.0f}% away win + {prediction['draw']*100:.0f}% draw = {combined_prob*100:.0f}% chance favourite doesn't win",
+            "away_edge": away_vb[0]["edge_percent"],
+        })
+
+    # Check if home team has edge but is actually underdog (away favoured)
+    home_vb = [v for v in value_bets if v["bet_type"] == "home_win"]
+    if home_vb and prediction["away_win"] > prediction["home_win"]:
+        combined_prob = prediction["draw"] + prediction["home_win"]
+        away_implied = 0
+        for bookie in odds_data.get("all_bookmakers", []):
+            a = bookie.get("away_odds", 0) or 0
+            if a > 0:
+                away_implied = max(away_implied, 1 / a)
+        lay_away_prob = 1 - away_implied if away_implied > 0 else 0
+        combined_edge = (combined_prob - lay_away_prob) * 100 if lay_away_prob > 0 else 0
+
+        combined_signals.append({
+            "type": "lay_favourite",
+            "label": "Underdog Edge: Draw + Home Win",
+            "combined_probability": round(combined_prob, 4),
+            "combined_percent": round(combined_prob * 100, 1),
+            "market_probability": round(lay_away_prob, 4),
+            "edge": round(combined_edge, 1),
+            "insight": f"Model says {prediction['home_win']*100:.0f}% home win + {prediction['draw']*100:.0f}% draw = {combined_prob*100:.0f}% chance favourite doesn't win",
+            "home_edge": home_vb[0]["edge_percent"],
+        })
+
+    # Attach combined signals to value bets
+    for vb in value_bets:
+        vb["combined_signals"] = combined_signals
+
     return sorted(value_bets, key=lambda x: x["edge_percent"], reverse=True)
 
 
