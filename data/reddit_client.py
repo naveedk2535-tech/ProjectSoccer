@@ -140,8 +140,8 @@ def _analyze_sentiment(texts):
 
 def fetch_team_sentiment(team, league="PL"):
     """Fetch and score Reddit sentiment for a specific team."""
-    cache_key = f"reddit_{team.replace(' ', '_')}_{datetime.utcnow().strftime('%Y%m%d')}"
-    cached = check_cache(cache_key, config.CACHE_TTL["sentiment"])
+    cache_key = f"reddit_{team.replace(' ', '_')}_{datetime.utcnow().strftime('%Y%m%d_%H')}"
+    cached = check_cache(cache_key, 43200)  # 12 hour cache — allows morning + pre-match scan
     if cached:
         return cached
 

@@ -1162,18 +1162,16 @@ def api_refresh_data():
             reddit_count = 0
             news_count = 0
             for code in enabled_leagues:
+                # Reddit: always refresh (12hr cache allows 2x/day)
                 try:
                     r = reddit_client.fetch_all_teams(code)
                     reddit_count += len(r) if r else 0
                 except Exception as e:
                     logger.error("Reddit fetch failed for %s: %s", code, e)
-                try:
-                    n = news_client.fetch_all_teams(code)
-                    news_count += len(n) if n else 0
-                except Exception as e:
-                    logger.error("News fetch failed for %s: %s", code, e)
+                # NewsAPI: only on scheduled task (24hr cache, 100/day limit)
+                # Skip on manual refresh — morning auto-refresh covers it
             results["reddit_teams"] = reddit_count
-            results["news_teams"] = news_count
+            results["news_note"] = "News updates automatically each morning (100/day API limit)"
         except Exception as e:
             logger.error("Sentiment refresh failed: %s", e)
 
