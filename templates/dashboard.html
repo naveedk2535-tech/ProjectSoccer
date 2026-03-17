@@ -220,7 +220,7 @@
                             ((m.ft_result == 'H' and m.ensemble_home > m.ensemble_draw and m.ensemble_home > m.ensemble_away) or
                              (m.ft_result == 'D' and m.ensemble_draw > m.ensemble_home and m.ensemble_draw > m.ensemble_away) or
                              (m.ft_result == 'A' and m.ensemble_away > m.ensemble_home and m.ensemble_away > m.ensemble_draw)) %}
-                        <div class="px-6 py-3 flex items-center justify-between text-sm {% if predicted_correct %}bg-green-50/50{% else %}bg-slate-50/30{% endif %}">
+                        <a href="/match/{{ code }}/{{ m.home_team|replace(' ', '_') }}/{{ m.away_team|replace(' ', '_') }}" class="block px-6 py-3 flex items-center justify-between text-sm hover:bg-slate-100 transition {% if predicted_correct %}bg-green-50/50{% else %}bg-slate-50/30{% endif %}">
                             <div class="w-20 text-xs text-slate-400 font-mono">{{ m.match_date[:10] if m.match_date else '' }}</div>
                             <div class="flex-1 text-right pr-3">
                                 <span class="text-sm {% if m.ft_result == 'H' %}font-bold text-slate-800{% else %}text-slate-500{% endif %}">{{ m.home_team }}</span>
@@ -238,7 +238,7 @@
                                 </span>
                                 {% endif %}
                             </div>
-                        </div>
+                        </a>
                         {% endfor %}
                     </div>
                 </div>
