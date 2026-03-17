@@ -56,14 +56,24 @@ def task_odds():
 
 
 def task_sentiment():
-    """Fetch sentiment from Reddit + NewsAPI."""
+    """Fetch sentiment from Reddit + NewsAPI (morning: both, evening: Reddit only)."""
     logger.info("Fetching sentiment data...")
     for code, league in config.LEAGUES.items():
         if not league["enabled"]:
             continue
         reddit_client.fetch_all_teams(code)
         news_client.fetch_all_teams(code)
-        logger.info("  %s: sentiment updated", league["name"])
+        logger.info("  %s: sentiment updated (Reddit + News)", league["name"])
+
+
+def task_reddit_only():
+    """Fetch Reddit sentiment only (for evening/pre-match scan)."""
+    logger.info("Fetching Reddit sentiment only...")
+    for code, league in config.LEAGUES.items():
+        if not league["enabled"]:
+            continue
+        reddit_client.fetch_all_teams(code)
+        logger.info("  %s: Reddit sentiment updated", league["name"])
 
 
 def task_csv():
@@ -318,7 +328,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="ProjectSoccer Scheduler")
     parser.add_argument("--task", required=True,
                         choices=["daily", "weekly", "all", "fixtures", "odds",
-                                 "sentiment", "csv", "ratings", "predictions",
+                                 "sentiment", "reddit_only", "csv", "ratings", "predictions",
                                  "retrain", "optimize_weights", "train_stacker", "tracker"],
                         help="Which task to run")
     args = parser.parse_args()
@@ -330,6 +340,7 @@ if __name__ == "__main__":
         "fixtures": task_fixtures,
         "odds": task_odds,
         "sentiment": task_sentiment,
+        "reddit_only": task_reddit_only,
         "csv": task_csv,
         "ratings": task_ratings,
         "predictions": task_predictions,

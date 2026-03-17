@@ -22,7 +22,7 @@ FLASK_SECRET_KEY = os.getenv("FLASK_SECRET_KEY", "dev-fallback-key")
 RATE_LIMITS = {
     "football_data_org": {"calls": 10, "period_seconds": 60},      # 10/min (API hard limit)
     "odds_api":          {"calls": 12, "period_seconds": 86400},    # 12/day = 3-4 full refreshes (~360/month, under 500)
-    "reddit":            {"calls": 6,  "period_seconds": 86400},    # 6/day = covers 3 full refreshes
+    "reddit":            {"calls": 12, "period_seconds": 86400},    # 12/day = 4 scans × 3 leagues
     "newsapi":           {"calls": 6,  "period_seconds": 86400},    # 6/day = covers 3 full refreshes
     "football_data_uk":  {"calls": 3,  "period_seconds": 86400},    # 3/day (1 per league, daily refresh now)
 }
