@@ -498,8 +498,11 @@ def check_rate_limit_exhaustion():
             return make_result("Rate Limits", "api", "pass",
                                "All API rate limits have capacity.")
         if len(exhausted) >= 3:
-            return make_result("Rate Limits", "api", "warn",
+            return make_result("Rate Limits", "api", "critical",
                                f"{len(exhausted)} APIs exhausted: {', '.join(exhausted)}")
+        if len(exhausted) >= 1:
+            return make_result("Rate Limits", "api", "critical",
+                               f"Rate limit hit: {', '.join(exhausted)}")
         return make_result("Rate Limits", "api", "pass",
                            f"Some APIs at limit (normal): {', '.join(exhausted)}")
     except Exception as e:
