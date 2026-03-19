@@ -104,6 +104,45 @@ def logout():
     return redirect(url_for("login"))
 
 
+@app.route("/api/forgot-password", methods=["POST"])
+def api_forgot_password():
+    """Reset a user's password and email them the new one."""
+    data = request.get_json(silent=True)
+    if not data or not data.get("username"):
+        return jsonify({"error": "Username required"}), 400
+
+    username = data["username"].strip()
+    users = load_users()
+
+    if username not in users:
+        # Don't reveal whether user exists — always say "sent"
+        return jsonify({"status": "ok", "message": "If the user exists, a reset email has been sent."})
+
+    # Generate a random temporary password
+    import secrets
+    import string
+    new_password = ''.join(secrets.choice(string.ascii_letters + string.digits + "!@#$") for _ in range(12))
+
+    # Update the password
+    users[username] = new_password
+    save_users(users)
+    global USERS
+    USERS = users
+
+    # Send email
+    try:
+        from data.email_util import send_password_reset
+        sent = send_password_reset(config.ADMIN_EMAIL or config.SMTP_USER, username, new_password)
+        if sent:
+            logger.info("Password reset email sent for user: %s", username)
+        else:
+            logger.warning("Could not send password reset email for: %s", username)
+    except Exception as e:
+        logger.error("Password reset email failed: %s", e)
+
+    return jsonify({"status": "ok", "message": "If the user exists, a reset email has been sent."})
+
+
 # --- Dashboard Routes ---
 
 @app.route("/")

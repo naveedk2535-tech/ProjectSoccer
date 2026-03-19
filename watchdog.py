@@ -506,6 +506,15 @@ def main():
           f"({summary['passed']} pass, {summary['warnings']} warn, "
           f"{summary['critical']} critical)")
 
+    # Send email alert if issues found
+    if overall in ("warn", "critical"):
+        try:
+            from data.email_util import send_watchdog_alert
+            send_watchdog_alert(overall, results,
+                f"{summary['warnings']} warnings, {summary['critical']} critical issues found")
+        except Exception as e:
+            print(f"  Email alert failed: {e}")
+
     # Exit code
     code = {"pass": 0, "warn": 1, "critical": 2}[overall]
     sys.exit(code)

@@ -39,10 +39,11 @@
             </div>
             {% endif %}
 
-            <form method="POST" class="space-y-5">
+            <form method="POST" class="space-y-5" x-data="{ username: '', showForgot: false, resetSent: false, resetError: '' }">
                 <div>
                     <label class="block text-xs text-gray-400 uppercase tracking-wider mb-2">Username</label>
-                    <input type="text" name="username" required autofocus
+                    <input type="text" name="username" required autofocus x-model="username"
+                           @input="showForgot = (username.toLowerCase() === 'forgotpassword')"
                            class="w-full px-4 py-3 rounded-xl bg-[#0a0e17] border border-gray-700 text-white placeholder-gray-600 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 focus:outline-none transition"
                            placeholder="Enter username">
                 </div>
@@ -56,6 +57,31 @@
                         class="w-full py-3 rounded-xl bg-gradient-to-r from-emerald-600 to-green-500 hover:from-emerald-500 hover:to-green-400 text-white font-semibold text-sm transition shadow-lg shadow-green-500/20">
                     Sign In
                 </button>
+
+                <!-- Forgot Password — only appears when username = "forgotpassword" -->
+                <div x-show="showForgot" x-cloak x-transition class="mt-4 bg-[#0a0e17] border border-gray-700 rounded-xl p-4">
+                    <p class="text-xs text-gray-400 mb-3">Enter your username to receive a password reset email:</p>
+                    <div class="flex space-x-2" x-data="{ resetUser: '' }">
+                        <input type="text" x-model="resetUser" placeholder="Your username"
+                               class="flex-1 px-3 py-2 rounded-lg bg-[#111827] border border-gray-700 text-white text-sm placeholder-gray-600 focus:border-emerald-500 focus:outline-none">
+                        <button type="button" @click="
+                            resetError = '';
+                            resetSent = false;
+                            fetch('/api/forgot-password', {
+                                method: 'POST',
+                                headers: {'Content-Type': 'application/json'},
+                                body: JSON.stringify({username: resetUser})
+                            }).then(r => r.json()).then(d => {
+                                if (d.status === 'ok') { resetSent = true; }
+                                else { resetError = d.error || 'Failed'; }
+                            }).catch(e => { resetError = 'Network error'; });
+                        " class="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium transition">
+                            Reset
+                        </button>
+                    </div>
+                    <p x-show="resetSent" x-cloak class="text-emerald-400 text-xs mt-2">Password reset email sent! Check your inbox.</p>
+                    <p x-show="resetError" x-cloak class="text-red-400 text-xs mt-2" x-text="resetError"></p>
+                </div>
             </form>
         </div>
 

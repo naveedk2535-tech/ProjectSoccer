@@ -16,6 +16,14 @@ REDDIT_USER_AGENT = os.getenv("REDDIT_USER_AGENT", "ProjectSoccer/1.0")
 NEWS_API_KEY = os.getenv("NEWS_API_KEY")
 FLASK_SECRET_KEY = os.getenv("FLASK_SECRET_KEY", "dev-fallback-key")
 
+# --- SMTP ---
+SMTP_HOST = os.getenv("SMTP_HOST", "smtp.gmail.com")
+SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
+SMTP_USER = os.getenv("SMTP_USER", "")
+SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "")
+SMTP_FROM = os.getenv("SMTP_FROM", "")
+ADMIN_EMAIL = os.getenv("ADMIN_EMAIL", os.getenv("SMTP_USER", ""))
+
 # --- Rate Limits (requests per window) ---
 # PAID TIER — more CPU, no proxy restrictions, scheduled tasks available
 # Budget: 3 full refreshes/day comfortably
