@@ -4,16 +4,160 @@
 {% block content %}
 {% set bankroll_current = bankroll_start + summary.total_profit %}
 
-<div class="space-y-6" x-data="{ editingBankroll: false, newBankroll: {{ bankroll_start }}, showHelp: false }">
+<div class="space-y-6" x-data="{ editingBankroll: false, newBankroll: {{ bankroll_start }}, showHelp: false, showNewPortfolio: false, newPName: '', newPBankroll: 100, newPNotes: '', editingPortfolio: null, editPName: '', editPBankroll: 0, editPNotes: '' }">
     <!-- Page Title with Help -->
-    <div class="flex items-center space-x-2">
-        <h1 class="text-2xl font-black text-slate-800">Bet Portfolio</h1>
-        <button @click="showHelp = true" class="w-8 h-8 rounded-lg bg-slate-200 hover:bg-slate-300 flex items-center justify-center text-slate-500 hover:text-slate-700 transition" title="Help">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-            </svg>
+    <div class="flex items-center justify-between">
+        <div class="flex items-center space-x-2">
+            <h1 class="text-2xl font-black text-slate-800">Bet Portfolio</h1>
+            <button @click="showHelp = true" class="w-8 h-8 rounded-lg bg-slate-200 hover:bg-slate-300 flex items-center justify-center text-slate-500 hover:text-slate-700 transition" title="Help">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+            </button>
+        </div>
+        <button @click="showNewPortfolio = true"
+                class="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium transition flex items-center space-x-1">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+            <span>New Portfolio</span>
         </button>
     </div>
+
+    <!-- Portfolio Season Selector -->
+    <div class="rounded-xl bg-white border border-slate-200 p-4">
+        <p class="text-[10px] text-slate-500 uppercase tracking-widest font-semibold mb-3">Portfolio Seasons</p>
+        <div class="flex flex-wrap gap-2">
+            <!-- All Time tab -->
+            <a href="/portfolio?view=all"
+               class="group relative px-4 py-2.5 rounded-lg border text-sm font-medium transition
+                      {% if not active_portfolio and view_mode == 'all' %}bg-indigo-50 border-indigo-300 text-indigo-700{% else %}bg-white border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50{% endif %}">
+                <span>All Time</span>
+            </a>
+
+            {% for p in all_portfolios %}
+            <div class="relative group" x-data="{ showActions: false }">
+                <a href="/portfolio?id={{ p.id }}"
+                   class="inline-flex items-center space-x-2 px-4 py-2.5 rounded-lg border text-sm font-medium transition
+                          {% if active_portfolio and active_portfolio.id == p.id %}bg-indigo-50 border-indigo-300 text-indigo-700{% else %}bg-white border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50{% endif %}">
+                    <span>{{ p.name }}</span>
+                    <span class="text-[10px] px-1.5 py-0.5 rounded-full
+                        {% if p.status == 'active' %}bg-emerald-100 text-emerald-700{% else %}bg-slate-100 text-slate-500{% endif %}">
+                        {{ p.status }}
+                    </span>
+                    <span class="text-[10px] font-mono {% if p.pnl > 0 %}text-emerald-600{% elif p.pnl < 0 %}text-red-500{% else %}text-slate-400{% endif %}">
+                        {{ '%+.2f'|format(p.pnl) }}
+                    </span>
+                </a>
+                <!-- Action dots -->
+                <button @click="showActions = !showActions" class="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-slate-200 hover:bg-slate-300 text-slate-500 text-[10px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition">
+                    ...
+                </button>
+                <!-- Actions dropdown -->
+                <div x-show="showActions" x-cloak @click.outside="showActions = false"
+                     class="absolute top-full right-0 mt-1 w-36 bg-white rounded-lg border border-slate-200 shadow-lg z-20 py-1 text-xs">
+                    <button @click="editingPortfolio = {{ p.id }}; editPName = '{{ p.name }}'; editPBankroll = {{ p.bankroll or 0 }}; editPNotes = '{{ p.notes or '' }}'; showActions = false"
+                            class="w-full px-3 py-1.5 text-left text-slate-600 hover:bg-slate-50">Edit</button>
+                    {% if p.status == 'active' %}
+                    <button @click="if(confirm('Close this portfolio?')) fetch('/api/portfolios/{{ p.id }}/close', {method:'POST'}).then(()=>location.reload()); showActions = false"
+                            class="w-full px-3 py-1.5 text-left text-amber-600 hover:bg-amber-50">Close</button>
+                    {% endif %}
+                    <button @click="if(confirm('Delete this portfolio and unassign its bets?')) fetch('/api/portfolios/{{ p.id }}', {method:'DELETE'}).then(()=>location.href='/portfolio?view=all'); showActions = false"
+                            class="w-full px-3 py-1.5 text-left text-red-600 hover:bg-red-50">Delete</button>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- Quick stats row for each portfolio -->
+        {% if all_portfolios %}
+        <div class="mt-3 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+            {% for p in all_portfolios %}
+            <div class="text-[10px] text-slate-400 px-2 py-1 bg-slate-50 rounded">
+                <span class="font-medium text-slate-600">{{ p.name }}:</span>
+                {{ p.bets_count }} bets, {{ p.win_rate }}% WR, <span class="{% if p.pnl >= 0 %}text-emerald-600{% else %}text-red-500{% endif %} font-mono">{{ '%+.2f'|format(p.pnl) }}</span>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- New Portfolio Modal -->
+    <div x-show="showNewPortfolio" x-cloak class="fixed inset-0 z-[100] flex items-center justify-center p-4" @click.self="showNewPortfolio = false">
+        <div class="absolute inset-0 bg-black/40 backdrop-blur-sm"></div>
+        <div class="relative bg-white rounded-2xl max-w-md w-full p-6 border border-slate-200 shadow-2xl">
+            <button @click="showNewPortfolio = false" class="absolute top-4 right-4 w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-400 hover:text-slate-600">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+            <h2 class="text-lg font-bold text-slate-800 mb-4">New Portfolio Season</h2>
+            <div class="space-y-4">
+                <div>
+                    <label class="text-xs text-slate-500 uppercase font-semibold">Name</label>
+                    <input type="text" x-model="newPName" placeholder="e.g. Gameweek 28, March 2026"
+                           class="w-full mt-1 px-3 py-2 rounded-lg bg-white border border-slate-300 text-slate-800 text-sm focus:border-indigo-500 focus:outline-none">
+                </div>
+                <div>
+                    <label class="text-xs text-slate-500 uppercase font-semibold">Starting Bankroll ($)</label>
+                    <input type="number" x-model="newPBankroll" min="0" step="1"
+                           class="w-full mt-1 px-3 py-2 rounded-lg bg-white border border-slate-300 text-slate-800 font-mono text-sm focus:border-indigo-500 focus:outline-none">
+                </div>
+                <div>
+                    <label class="text-xs text-slate-500 uppercase font-semibold">Notes (optional)</label>
+                    <input type="text" x-model="newPNotes" placeholder="Any notes..."
+                           class="w-full mt-1 px-3 py-2 rounded-lg bg-white border border-slate-300 text-slate-800 text-sm focus:border-indigo-500 focus:outline-none">
+                </div>
+                <button @click="fetch('/api/portfolios', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({name:newPName, bankroll:parseFloat(newPBankroll), notes:newPNotes})}).then(r=>r.json()).then(d=>{if(d.id){location.href='/portfolio?id='+d.id}else{alert(d.error||'Error')}})"
+                        class="w-full py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium transition">
+                    Create Portfolio
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Portfolio Modal -->
+    <div x-show="editingPortfolio" x-cloak class="fixed inset-0 z-[100] flex items-center justify-center p-4" @click.self="editingPortfolio = null">
+        <div class="absolute inset-0 bg-black/40 backdrop-blur-sm"></div>
+        <div class="relative bg-white rounded-2xl max-w-md w-full p-6 border border-slate-200 shadow-2xl">
+            <button @click="editingPortfolio = null" class="absolute top-4 right-4 w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-400 hover:text-slate-600">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+            <h2 class="text-lg font-bold text-slate-800 mb-4">Edit Portfolio</h2>
+            <div class="space-y-4">
+                <div>
+                    <label class="text-xs text-slate-500 uppercase font-semibold">Name</label>
+                    <input type="text" x-model="editPName"
+                           class="w-full mt-1 px-3 py-2 rounded-lg bg-white border border-slate-300 text-slate-800 text-sm focus:border-indigo-500 focus:outline-none">
+                </div>
+                <div>
+                    <label class="text-xs text-slate-500 uppercase font-semibold">Bankroll ($)</label>
+                    <input type="number" x-model="editPBankroll" min="0" step="1"
+                           class="w-full mt-1 px-3 py-2 rounded-lg bg-white border border-slate-300 text-slate-800 font-mono text-sm focus:border-indigo-500 focus:outline-none">
+                </div>
+                <div>
+                    <label class="text-xs text-slate-500 uppercase font-semibold">Notes</label>
+                    <input type="text" x-model="editPNotes"
+                           class="w-full mt-1 px-3 py-2 rounded-lg bg-white border border-slate-300 text-slate-800 text-sm focus:border-indigo-500 focus:outline-none">
+                </div>
+                <button @click="fetch('/api/portfolios/'+editingPortfolio, {method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify({name:editPName, bankroll:parseFloat(editPBankroll), notes:editPNotes})}).then(()=>location.reload())"
+                        class="w-full py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium transition">
+                    Save Changes
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Active portfolio header -->
+    {% if active_portfolio %}
+    <div class="flex items-center space-x-3">
+        <h2 class="text-lg font-bold text-slate-700">{{ active_portfolio.name }}</h2>
+        <span class="text-[10px] px-2 py-0.5 rounded-full {% if active_portfolio.status == 'active' %}bg-emerald-100 text-emerald-700{% else %}bg-slate-100 text-slate-500{% endif %}">
+            {{ active_portfolio.status }}
+        </span>
+        {% if active_portfolio.notes %}
+        <span class="text-xs text-slate-400">{{ active_portfolio.notes }}</span>
+        {% endif %}
+    </div>
+    {% elif view_mode == 'all' %}
+    <h2 class="text-lg font-bold text-slate-700">All Time</h2>
+    {% endif %}
 
     <!-- Portfolio Value Hero Section — distinct blue/indigo container -->
     <div class="rounded-2xl overflow-hidden bg-gradient-to-br from-indigo-900/50 via-blue-900/30 to-dark-900 border border-indigo-700/30">
@@ -40,10 +184,17 @@
                         <span class="text-3xl font-black text-white">$</span>
                         <input type="number" x-model="newBankroll" step="1" min="0"
                                class="w-40 px-3 py-2 rounded-lg bg-dark-800 border border-indigo-600 text-white font-mono text-2xl font-bold focus:border-indigo-400 focus:outline-none">
+                        {% if active_portfolio %}
+                        <button @click="fetch('/api/portfolios/{{ active_portfolio.id }}', {method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify({bankroll:parseFloat(newBankroll)})}).then(()=>location.reload())"
+                                class="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium transition">
+                            Save
+                        </button>
+                        {% else %}
                         <button @click="fetch('/api/bankroll', {method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify({bankroll:parseFloat(newBankroll)})}).then(()=>location.reload())"
                                 class="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium transition">
                             Save
                         </button>
+                        {% endif %}
                     </div>
 
                     <p class="text-xs text-indigo-300/60 mt-1">This is how much you've set aside for betting</p>
@@ -379,8 +530,12 @@
                     <p>Your personal betting portfolio — think of it like a stock trading dashboard but for bets.</p>
                 </div>
                 <div>
+                    <p class="font-bold text-slate-800">Portfolio Seasons</p>
+                    <p>Create named portfolios (e.g. "Gameweek 28", "March 2026") to track bets in separate seasons. Each has its own bankroll, bets, and P&L. Use "All Time" to see cumulative stats across all portfolios. Close a portfolio when a season ends. Existing bets without a portfolio are shown in the All Time view.</p>
+                </div>
+                <div>
                     <p class="font-bold text-slate-800">Starting Bankroll</p>
-                    <p>How much money you've set aside for betting. Click 'Edit' to change it. If you don't set it, we auto-calculate from your total wagers.</p>
+                    <p>How much money you've set aside for betting. Click 'Edit' to change it. If you don't set it, we auto-calculate from your total wagers. Each portfolio can have its own bankroll.</p>
                 </div>
                 <div>
                     <p class="font-bold text-slate-800">How to use it</p>

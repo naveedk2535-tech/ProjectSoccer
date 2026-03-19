@@ -81,6 +81,14 @@ def ensure_db():
     """Initialize database on first request."""
     if not hasattr(app, "_db_initialized"):
         db.init_db()
+        # Migration: add portfolio_id column to user_bets if missing
+        try:
+            db.execute("SELECT portfolio_id FROM user_bets LIMIT 1")
+        except Exception:
+            try:
+                db.execute("ALTER TABLE user_bets ADD COLUMN portfolio_id INTEGER REFERENCES portfolios(id)")
+            except Exception:
+                pass
         app._db_initialized = True
 
 
@@ -472,6 +480,11 @@ def match_detail(league, home_team, away_team):
     except Exception:
         pass
 
+    # Get active portfolios for bet calculator dropdown
+    active_portfolios = db.fetch_all(
+        "SELECT id, name FROM portfolios WHERE status = 'active' ORDER BY created_at DESC"
+    )
+
     return render_template("match.html",
         league=league,
         league_config=league_config,
@@ -487,6 +500,7 @@ def match_detail(league, home_team, away_team):
         home_sentiment=home_sentiment,
         away_sentiment=away_sentiment,
         signals=signals,
+        active_portfolios=active_portfolios,
     )
 
 
@@ -568,14 +582,59 @@ def performance_view():
 @app.route("/portfolio")
 @login_required
 def portfolio_view():
-    """Bet tracking portfolio — like a stock portfolio."""
+    """Bet tracking portfolio — like a stock portfolio with seasons."""
     league = request.args.get("league", "PL")
     league_config = config.LEAGUES.get(league, config.LEAGUES["PL"])
 
-    # All bets
-    all_bets = db.fetch_all(
-        "SELECT * FROM user_bets ORDER BY placed_at DESC"
+    # Get all portfolios for the selector
+    all_portfolios = db.fetch_all(
+        "SELECT * FROM portfolios ORDER BY created_at DESC"
     )
+
+    # Compute quick stats for each portfolio
+    for p in all_portfolios:
+        p_bets = db.fetch_all(
+            "SELECT status, stake, profit_loss FROM user_bets WHERE portfolio_id = ?",
+            [p["id"]]
+        )
+        p_settled = [b for b in p_bets if b["status"] in ("won", "lost")]
+        p_won = [b for b in p_bets if b["status"] == "won"]
+        p_total_staked = sum(b["stake"] for b in p_settled) if p_settled else 0
+        p_total_profit = sum(b["profit_loss"] for b in p_settled) if p_settled else 0
+        p["bets_count"] = len(p_bets)
+        p["pnl"] = round(p_total_profit, 2)
+        p["win_rate"] = round(len(p_won) / len(p_settled) * 100, 1) if p_settled else 0
+
+    # Determine which portfolio to show
+    view_mode = request.args.get("view")  # "all" for all-time
+    portfolio_id = request.args.get("id", type=int)
+    active_portfolio = None
+
+    if view_mode == "all":
+        # All-time view: all bets regardless of portfolio
+        portfolio_id = None
+    elif portfolio_id:
+        # Specific portfolio requested
+        active_portfolio = db.fetch_one("SELECT * FROM portfolios WHERE id = ?", [portfolio_id])
+    else:
+        # Default: most recent active portfolio, or all-time if none
+        active_portfolio = db.fetch_one(
+            "SELECT * FROM portfolios WHERE status = 'active' ORDER BY created_at DESC LIMIT 1"
+        )
+        if active_portfolio:
+            portfolio_id = active_portfolio["id"]
+
+    # Fetch bets based on selection
+    if portfolio_id and active_portfolio:
+        all_bets = db.fetch_all(
+            "SELECT * FROM user_bets WHERE portfolio_id = ? ORDER BY placed_at DESC",
+            [portfolio_id]
+        )
+    else:
+        # All-time view
+        all_bets = db.fetch_all(
+            "SELECT * FROM user_bets ORDER BY placed_at DESC"
+        )
 
     # Summary stats
     total_bets = len(all_bets)
@@ -620,8 +679,12 @@ def portfolio_view():
         "bankroll_change": round(total_profit, 2),
     }
 
-    settings = load_settings()
-    bankroll_start = settings.get("bankroll", 0)
+    # Determine bankroll
+    if active_portfolio:
+        bankroll_start = active_portfolio["bankroll"] or 0
+    else:
+        settings = load_settings()
+        bankroll_start = settings.get("bankroll", 0)
     # If bankroll not set, default to total amount wagered (including pending)
     if bankroll_start == 0 and all_bets:
         bankroll_start = round(sum(b["stake"] for b in all_bets), 2)
@@ -634,6 +697,9 @@ def portfolio_view():
         pending=pending,
         summary=summary,
         bankroll_start=bankroll_start,
+        all_portfolios=all_portfolios,
+        active_portfolio=active_portfolio,
+        view_mode=view_mode,
     )
 
 
@@ -715,6 +781,107 @@ def api_set_bankroll():
     return jsonify({"status": "ok", "bankroll": settings["bankroll"]})
 
 
+# --- Portfolio Season API Routes ---
+
+@app.route("/api/portfolios", methods=["GET"])
+@login_required
+def api_list_portfolios():
+    """List all portfolios with summary stats."""
+    portfolios = db.fetch_all("SELECT * FROM portfolios ORDER BY created_at DESC")
+    result = []
+    for p in portfolios:
+        p_bets = db.fetch_all(
+            "SELECT status, stake, profit_loss FROM user_bets WHERE portfolio_id = ?",
+            [p["id"]]
+        )
+        p_settled = [b for b in p_bets if b["status"] in ("won", "lost")]
+        p_won = [b for b in p_bets if b["status"] == "won"]
+        p_total_staked = sum(b["stake"] for b in p_settled) if p_settled else 0
+        p_total_profit = sum(b["profit_loss"] for b in p_settled) if p_settled else 0
+        result.append({
+            "id": p["id"],
+            "name": p["name"],
+            "bankroll": p["bankroll"],
+            "status": p["status"],
+            "created_at": p["created_at"],
+            "closed_at": p["closed_at"],
+            "notes": p["notes"],
+            "bets_count": len(p_bets),
+            "pnl": round(p_total_profit, 2),
+            "win_rate": round(len(p_won) / len(p_settled) * 100, 1) if p_settled else 0,
+        })
+    return jsonify(result)
+
+
+@app.route("/api/portfolios", methods=["POST"])
+@login_required
+def api_create_portfolio():
+    """Create a new portfolio season."""
+    data = request.json
+    if not data or not data.get("name"):
+        return jsonify({"error": "Portfolio name required"}), 400
+    name = data["name"].strip()
+    bankroll = float(data.get("bankroll", 0))
+    notes = data.get("notes", "")
+    try:
+        cursor = db.execute(
+            "INSERT INTO portfolios (name, bankroll, notes) VALUES (?, ?, ?)",
+            [name, bankroll, notes]
+        )
+        return jsonify({"status": "ok", "id": cursor.lastrowid, "message": f"Portfolio '{name}' created"})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+
+@app.route("/api/portfolios/<int:portfolio_id>", methods=["PUT"])
+@login_required
+def api_edit_portfolio(portfolio_id):
+    """Edit a portfolio (name, bankroll, notes)."""
+    data = request.json
+    if not data:
+        return jsonify({"error": "No data"}), 400
+    p = db.fetch_one("SELECT * FROM portfolios WHERE id = ?", [portfolio_id])
+    if not p:
+        return jsonify({"error": "Portfolio not found"}), 404
+    updates = []
+    params = []
+    for field in ["name", "bankroll", "notes"]:
+        if field in data:
+            updates.append(f"{field} = ?")
+            params.append(data[field] if field != "bankroll" else float(data[field]))
+    if updates:
+        params.append(portfolio_id)
+        db.execute(f"UPDATE portfolios SET {', '.join(updates)} WHERE id = ?", params)
+    return jsonify({"status": "ok"})
+
+
+@app.route("/api/portfolios/<int:portfolio_id>/close", methods=["POST"])
+@login_required
+def api_close_portfolio(portfolio_id):
+    """Close a portfolio season."""
+    p = db.fetch_one("SELECT * FROM portfolios WHERE id = ?", [portfolio_id])
+    if not p:
+        return jsonify({"error": "Portfolio not found"}), 404
+    db.execute(
+        "UPDATE portfolios SET status = 'closed', closed_at = datetime('now') WHERE id = ?",
+        [portfolio_id]
+    )
+    return jsonify({"status": "ok", "message": f"Portfolio '{p['name']}' closed"})
+
+
+@app.route("/api/portfolios/<int:portfolio_id>", methods=["DELETE"])
+@login_required
+def api_delete_portfolio(portfolio_id):
+    """Delete a portfolio and its bets."""
+    p = db.fetch_one("SELECT * FROM portfolios WHERE id = ?", [portfolio_id])
+    if not p:
+        return jsonify({"error": "Portfolio not found"}), 404
+    # Unassign bets (set portfolio_id to NULL) instead of deleting them
+    db.execute("UPDATE user_bets SET portfolio_id = NULL WHERE portfolio_id = ?", [portfolio_id])
+    db.execute("DELETE FROM portfolios WHERE id = ?", [portfolio_id])
+    return jsonify({"status": "ok", "message": f"Portfolio '{p['name']}' deleted"})
+
+
 # --- API Routes ---
 
 @app.route("/api/bets", methods=["POST"])
@@ -730,15 +897,24 @@ def api_place_bet():
         if field not in data:
             return jsonify({"error": f"Missing field: {field}"}), 400
 
+    portfolio_id = data.get("portfolio_id")
+    # If no portfolio_id provided, use the most recent active portfolio
+    if not portfolio_id:
+        active_p = db.fetch_one(
+            "SELECT id FROM portfolios WHERE status = 'active' ORDER BY created_at DESC LIMIT 1"
+        )
+        if active_p:
+            portfolio_id = active_p["id"]
+
     db.execute(
         """INSERT INTO user_bets
            (league, match_date, home_team, away_team, bet_type, stake, odds,
-            bookmaker, model_probability, edge_percent, status, notes)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?)""",
+            bookmaker, model_probability, edge_percent, status, notes, portfolio_id)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)""",
         [data["league"], data["match_date"], data["home_team"], data["away_team"],
          data["bet_type"], float(data["stake"]), float(data["odds"]),
          data.get("bookmaker", ""), data.get("model_probability"),
-         data.get("edge_percent"), data.get("notes", "")]
+         data.get("edge_percent"), data.get("notes", ""), portfolio_id]
     )
     return jsonify({"status": "ok", "message": "Bet tracked"})
 

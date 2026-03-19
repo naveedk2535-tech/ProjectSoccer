@@ -363,7 +363,7 @@
 
         <!-- Track Bet Button (appears after clicking an outcome) -->
         <div x-show="selectedBet" x-cloak class="mt-4 bg-slate-50 rounded-xl p-4 border border-slate-200">
-            <div class="flex items-center justify-between">
+            <div class="flex items-center justify-between flex-wrap gap-2">
                 <div>
                     <p class="text-sm text-slate-800">
                         Track: <span class="font-semibold" x-text="selectedBet.replace('_',' ').replace(/\b\w/g, l => l.toUpperCase())"></span>
@@ -375,9 +375,21 @@
                         Lose: $<span class="text-red-600" x-text="stake"></span>
                     </p>
                 </div>
-                <button @click="trackBet()" class="px-4 py-2 rounded-lg bg-gradient-to-r from-green-600 to-green-500 hover:from-green-500 hover:to-green-400 text-slate-800 text-sm font-medium transition">
-                    Add to Portfolio
-                </button>
+                <div class="flex items-center space-x-2">
+                    {% if active_portfolios %}
+                    <select x-model="portfolioId" class="px-3 py-2 rounded-lg bg-white border border-slate-300 text-slate-700 text-xs focus:border-green-500 focus:outline-none">
+                        {% for p in active_portfolios %}
+                        <option value="{{ p.id }}" {% if loop.first %}selected{% endif %}>{{ p.name }}</option>
+                        {% endfor %}
+                        <option value="">No portfolio</option>
+                    </select>
+                    {% else %}
+                    <span class="text-xs text-slate-400">No active portfolio</span>
+                    {% endif %}
+                    <button @click="trackBet()" class="px-4 py-2 rounded-lg bg-gradient-to-r from-green-600 to-green-500 hover:from-green-500 hover:to-green-400 text-slate-800 text-sm font-medium transition">
+                        Add to Portfolio
+                    </button>
+                </div>
             </div>
         </div>
     </div>
@@ -1319,21 +1331,26 @@ function betCalc() {
         selectedBet: null,
         selectedOdds: 0,
         selectedProb: 0,
+        portfolioId: '{{ active_portfolios[0].id if active_portfolios else "" }}',
         async trackBet() {
+            const body = {
+                league: '{{ league }}',
+                match_date: '{{ (predictions[0].fixture.match_date[:10] if predictions else "") if predictions is defined else "" }}',
+                home_team: '{{ home_team }}',
+                away_team: '{{ away_team }}',
+                bet_type: this.selectedBet,
+                stake: this.stake,
+                odds: this.selectedOdds,
+                model_probability: this.selectedProb,
+                bookmaker: 'Model Odds',
+            };
+            if (this.portfolioId) {
+                body.portfolio_id = parseInt(this.portfolioId);
+            }
             const res = await fetch('/api/bets', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({
-                    league: '{{ league }}',
-                    match_date: '{{ (predictions[0].fixture.match_date[:10] if predictions else "") if predictions is defined else "" }}',
-                    home_team: '{{ home_team }}',
-                    away_team: '{{ away_team }}',
-                    bet_type: this.selectedBet,
-                    stake: this.stake,
-                    odds: this.selectedOdds,
-                    model_probability: this.selectedProb,
-                    bookmaker: 'Model Odds',
-                })
+                body: JSON.stringify(body)
             });
             if (res.ok) {
                 alert('Bet added to portfolio!');

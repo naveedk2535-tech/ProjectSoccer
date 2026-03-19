@@ -278,6 +278,17 @@ CREATE TABLE IF NOT EXISTS model_performance (
     UNIQUE(league, season, model_name)
 );
 
+-- Portfolio seasons
+CREATE TABLE IF NOT EXISTS portfolios (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL UNIQUE,
+    bankroll REAL DEFAULT 0,
+    status TEXT DEFAULT 'active',  -- active, closed
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    closed_at TIMESTAMP,
+    notes TEXT
+);
+
 -- User bet tracking (portfolio)
 CREATE TABLE IF NOT EXISTS user_bets (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
