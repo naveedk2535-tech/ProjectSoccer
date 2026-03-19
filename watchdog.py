@@ -474,12 +474,12 @@ def check_rate_limit_exhaustion():
         now = datetime.now(timezone.utc)
         exhausted = []
 
-        # Only monitor APIs where hitting the limit is a real problem
-        # football_data_uk excluded: hitting 3/3 is normal (1 per league per day)
+        # Only monitor APIs where hitting the limit is unexpected
+        # Excluded: football_data_uk (3/3 normal), reddit (6/6 normal = 2 scans × 3 leagues)
+        # These APIs are expected to hit their limits daily as part of normal operation
         limits = {
             "football_data_org": {"calls": 10, "period": 60},
             "odds_api": {"calls": 12, "period": 86400},
-            "reddit": {"calls": 6, "period": 86400},
             "newsapi": {"calls": 6, "period": 86400},
         }
 

@@ -376,16 +376,16 @@
                     </p>
                 </div>
                 <div class="flex items-center space-x-2">
-                    {% if active_portfolios %}
                     <select x-model="portfolioId" class="px-3 py-2 rounded-lg bg-white border border-slate-300 text-slate-700 text-xs focus:border-green-500 focus:outline-none">
+                        {% if active_portfolios %}
                         {% for p in active_portfolios %}
                         <option value="{{ p.id }}" {% if loop.first %}selected{% endif %}>{{ p.name }}</option>
                         {% endfor %}
-                        <option value="">No portfolio</option>
+                        {% else %}
+                        <option value="" selected>No portfolio — create one first</option>
+                        {% endif %}
+                        <option value="">Unassigned</option>
                     </select>
-                    {% else %}
-                    <span class="text-xs text-slate-400">No active portfolio</span>
-                    {% endif %}
                     <button @click="trackBet()" class="px-4 py-2 rounded-lg bg-gradient-to-r from-green-600 to-green-500 hover:from-green-500 hover:to-green-400 text-slate-800 text-sm font-medium transition">
                         Add to Portfolio
                     </button>
