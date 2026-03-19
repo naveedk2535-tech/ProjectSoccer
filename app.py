@@ -480,6 +480,60 @@ def match_detail(league, home_team, away_team):
     except Exception:
         pass
 
+    # Corners & Discipline
+    try:
+        for team, key in [(home_team, "home"), (away_team, "away")]:
+            stats = db.fetch_one(
+                """SELECT AVG(CASE WHEN home_team = ? THEN home_corners WHEN away_team = ? THEN away_corners END) as corners,
+                          AVG(CASE WHEN home_team = ? THEN home_fouls WHEN away_team = ? THEN away_fouls END) as fouls,
+                          AVG(CASE WHEN home_team = ? THEN home_yellows WHEN away_team = ? THEN away_yellows END) as yellows
+                   FROM matches WHERE league = ? AND (home_team = ? OR away_team = ?)
+                   AND home_corners IS NOT NULL""",
+                [team, team, team, team, team, team, league, team, team]
+            )
+            if stats:
+                signals[f"{key}_corners"] = round(stats["corners"], 1) if stats["corners"] else None
+                signals[f"{key}_fouls"] = round(stats["fouls"], 1) if stats["fouls"] else None
+                signals[f"{key}_yellows"] = round(stats["yellows"], 1) if stats["yellows"] else None
+    except Exception:
+        pass
+
+    # Rolling 10-match form & Conversion luck
+    try:
+        for team, key in [(home_team, "home"), (away_team, "away")]:
+            rolling = db.fetch_all(
+                """SELECT ft_home_goals, ft_away_goals, home_team, home_shots_target, away_shots_target
+                   FROM matches WHERE league = ? AND (home_team = ? OR away_team = ?)
+                   AND ft_home_goals IS NOT NULL ORDER BY match_date DESC LIMIT 10""",
+                [league, team, team]
+            )
+            if rolling and len(rolling) >= 3:
+                scored = sum(r["ft_home_goals"] if r["home_team"] == team else r["ft_away_goals"] for r in rolling)
+                conceded = sum(r["ft_away_goals"] if r["home_team"] == team else r["ft_home_goals"] for r in rolling)
+                signals[f"{key}_rolling_scored"] = round(scored / len(rolling), 2)
+                signals[f"{key}_rolling_conceded"] = round(conceded / len(rolling), 2)
+
+                # Conversion luck
+                sot = sum((r["home_shots_target"] if r["home_team"] == team else r["away_shots_target"]) or 0 for r in rolling)
+                if sot > 0:
+                    conversion = scored / sot
+                    signals[f"{key}_conversion_luck"] = round(conversion - 0.30, 3)
+    except Exception:
+        pass
+
+    # Over/Under 2.5 historical rate
+    try:
+        for team, key in [(home_team, "home"), (away_team, "away")]:
+            ou = db.fetch_one(
+                """SELECT AVG(CASE WHEN (ft_home_goals + ft_away_goals) > 2 THEN 1.0 ELSE 0.0 END) as rate
+                   FROM matches WHERE league = ? AND (home_team = ? OR away_team = ?) AND ft_home_goals IS NOT NULL""",
+                [league, team, team]
+            )
+            if ou and ou["rate"]:
+                signals[f"{key}_over25_rate"] = round(ou["rate"] * 100, 0)
+    except Exception:
+        pass
+
     # Get active portfolios for bet calculator dropdown
     active_portfolios = db.fetch_all(
         "SELECT id, name FROM portfolios WHERE status = 'active' ORDER BY created_at DESC"

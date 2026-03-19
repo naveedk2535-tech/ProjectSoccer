@@ -31,6 +31,7 @@ from data import football_data_uk, football_data_api, odds_api
 from data import reddit_client, news_client
 from models import ensemble, poisson, elo
 from models import xgboost_model
+from models import over_under as over_under_model
 from models import diagnosis as diagnosis_module
 import config
 
@@ -283,6 +284,22 @@ def task_optimize_weights():
             logger.error("  %s: Weight optimization error: %s", league["name"], e)
 
 
+def task_train_over_under():
+    """Train the dedicated Over/Under 2.5 model for each enabled league."""
+    logger.info("Training Over/Under 2.5 model...")
+    for code, league in config.LEAGUES.items():
+        if not league["enabled"]:
+            continue
+        try:
+            model = over_under_model.train(code)
+            if model:
+                logger.info("  %s: Over/Under model trained successfully", league["name"])
+            else:
+                logger.info("  %s: Not enough data to train Over/Under model", league["name"])
+        except Exception as e:
+            logger.error("  %s: Over/Under training error: %s", league["name"], e)
+
+
 def task_train_stacker():
     """Train the stacking ensemble meta-model for each enabled league."""
     logger.info("Training stacking ensemble...")
@@ -300,10 +317,11 @@ def task_train_stacker():
 
 
 def run_weekly():
-    """Weekly task: CSV update + ratings rebuild + retrain + optimize + stacker + predictions."""
+    """Weekly task: CSV update + ratings rebuild + retrain + O/U + optimize + stacker + predictions."""
     task_csv()
     task_ratings()
     task_retrain()
+    task_train_over_under()
     task_optimize_weights()
     task_train_stacker()
     task_predictions()
@@ -317,6 +335,7 @@ def run_all():
     task_sentiment()
     task_ratings()
     task_retrain()
+    task_train_over_under()
     task_optimize_weights()
     task_train_stacker()
     task_predictions()
@@ -329,7 +348,7 @@ if __name__ == "__main__":
     parser.add_argument("--task", required=True,
                         choices=["daily", "weekly", "all", "fixtures", "odds",
                                  "sentiment", "reddit_only", "csv", "ratings", "predictions",
-                                 "retrain", "optimize_weights", "train_stacker", "tracker"],
+                                 "retrain", "train_over_under", "optimize_weights", "train_stacker", "tracker"],
                         help="Which task to run")
     args = parser.parse_args()
 
@@ -345,6 +364,7 @@ if __name__ == "__main__":
         "ratings": task_ratings,
         "predictions": task_predictions,
         "retrain": task_retrain,
+        "train_over_under": task_train_over_under,
         "optimize_weights": task_optimize_weights,
         "train_stacker": task_train_stacker,
         "tracker": task_tracker,

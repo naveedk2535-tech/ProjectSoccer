@@ -20,6 +20,7 @@ from models import poisson as poisson_model
 from models import elo as elo_model
 from models import xgboost_model
 from models import sentiment as sentiment_model
+from models import over_under as over_under_model
 from database import db
 import config
 
@@ -360,10 +361,22 @@ def predict(home_team, away_team, league="PL", match_date=None):
         away_win /= total
 
     # Over/Under and BTTS from Poisson (only Poisson can do scoreline matrix)
-    over25 = predictions.get("poisson", {}).get("over25")
+    poisson_over25 = predictions.get("poisson", {}).get("over25")
     btts = predictions.get("poisson", {}).get("btts_yes")
     scoreline_matrix = predictions.get("poisson", {}).get("scoreline_matrix")
     most_likely_score = predictions.get("poisson", {}).get("most_likely_score")
+
+    # Blend Over/Under 2.5 with dedicated O/U model (50/50 blend)
+    over25 = poisson_over25
+    try:
+        ou_pred = over_under_model.predict_over_under(home_team, away_team, league, match_date)
+        if ou_pred and ou_pred.get("over25_prob") is not None:
+            if poisson_over25 is not None:
+                over25 = poisson_over25 * 0.5 + ou_pred["over25_prob"] * 0.5
+            else:
+                over25 = ou_pred["over25_prob"]
+    except Exception as e:
+        logger.debug("Over/Under model unavailable, using Poisson only: %s", e)
 
     # Confidence: weighted average of model confidences
     confidences = []

@@ -848,6 +848,110 @@
                         </div>
                         {% endif %}
 
+                        <!-- Corners & Discipline Signal -->
+                        {% if signals.home_corners is defined and signals.home_corners %}
+                        <div class="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
+                            <div class="flex items-center space-x-2 mb-3">
+                                <div class="w-8 h-8 rounded-lg bg-yellow-50 flex items-center justify-center">
+                                    <svg class="w-4 h-4 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 21h18M3 3v18M3 3h18"/>
+                                    </svg>
+                                </div>
+                                <p class="text-[10px] text-yellow-600 uppercase tracking-wider font-semibold">Corners & Discipline</p>
+                            </div>
+                            <div class="space-y-2">
+                                {% for label, key in [(home_team, 'home'), (away_team, 'away')] %}
+                                <div class="{% if not loop.first %}pt-2 border-t border-slate-100{% endif %}">
+                                    <p class="text-xs font-medium text-slate-600 mb-1">{{ label }}</p>
+                                    <div class="grid grid-cols-3 gap-2 text-center text-[10px]">
+                                        <div class="bg-slate-50 rounded p-1.5">
+                                            <p class="text-slate-500">Corners</p>
+                                            <p class="font-mono font-bold text-slate-800">{{ signals[key + '_corners']|default('—') }}</p>
+                                        </div>
+                                        <div class="bg-slate-50 rounded p-1.5">
+                                            <p class="text-slate-500">Fouls</p>
+                                            <p class="font-mono font-bold text-slate-800">{{ signals[key + '_fouls']|default('—') }}</p>
+                                        </div>
+                                        <div class="bg-slate-50 rounded p-1.5">
+                                            <p class="text-slate-500">Yellows</p>
+                                            <p class="font-mono font-bold text-slate-800">{{ signals[key + '_yellows']|default('—') }}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        <!-- Rolling Form & Conversion Signal -->
+                        {% if signals.home_rolling_scored is defined %}
+                        <div class="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
+                            <div class="flex items-center space-x-2 mb-3">
+                                <div class="w-8 h-8 rounded-lg bg-cyan-50 flex items-center justify-center">
+                                    <svg class="w-4 h-4 text-cyan-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
+                                    </svg>
+                                </div>
+                                <p class="text-[10px] text-cyan-600 uppercase tracking-wider font-semibold">Rolling Form (Last 10)</p>
+                            </div>
+                            <div class="space-y-2">
+                                {% for label, key in [(home_team, 'home'), (away_team, 'away')] %}
+                                <div class="{% if not loop.first %}pt-2 border-t border-slate-100{% endif %}">
+                                    <p class="text-xs font-medium text-slate-600 mb-1">{{ label }}</p>
+                                    <div class="flex items-center justify-between text-xs">
+                                        <span class="text-slate-500">Scored/game</span>
+                                        <span class="font-mono font-bold {% if signals[key + '_rolling_scored'] is defined and signals[key + '_rolling_scored'] > 1.5 %}text-green-700{% else %}text-slate-800{% endif %}">{{ signals[key + '_rolling_scored']|default('—') }}</span>
+                                    </div>
+                                    <div class="flex items-center justify-between text-xs">
+                                        <span class="text-slate-500">Conceded/game</span>
+                                        <span class="font-mono font-bold {% if signals[key + '_rolling_conceded'] is defined and signals[key + '_rolling_conceded'] > 1.5 %}text-red-600{% else %}text-slate-800{% endif %}">{{ signals[key + '_rolling_conceded']|default('—') }}</span>
+                                    </div>
+                                    {% if signals[key + '_conversion_luck'] is defined %}
+                                    <div class="flex items-center justify-between text-xs mt-1">
+                                        <span class="text-slate-500">Conversion luck</span>
+                                        <div class="flex items-center space-x-1">
+                                            <span class="w-2 h-2 rounded-full {% if signals[key + '_conversion_luck'] > 0.05 %}bg-yellow-500{% elif signals[key + '_conversion_luck'] < -0.05 %}bg-blue-500{% else %}bg-slate-400{% endif %}"></span>
+                                            <span class="font-mono text-[10px] {% if signals[key + '_conversion_luck'] > 0.05 %}text-yellow-600{% elif signals[key + '_conversion_luck'] < -0.05 %}text-blue-600{% else %}text-slate-500{% endif %}">
+                                                {% if signals[key + '_conversion_luck'] > 0.05 %}Overperforming{% elif signals[key + '_conversion_luck'] < -0.05 %}Due to improve{% else %}Normal{% endif %}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        <!-- Over/Under 2.5 Rate Signal -->
+                        {% if signals.home_over25_rate is defined %}
+                        <div class="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
+                            <div class="flex items-center space-x-2 mb-3">
+                                <div class="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center">
+                                    <svg class="w-4 h-4 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"/>
+                                    </svg>
+                                </div>
+                                <p class="text-[10px] text-indigo-600 uppercase tracking-wider font-semibold">Over/Under 2.5 History</p>
+                            </div>
+                            <div class="space-y-2">
+                                {% for label, key in [(home_team, 'home'), (away_team, 'away')] %}
+                                <div class="flex items-center justify-between text-xs">
+                                    <span class="text-slate-600">{{ label }}</span>
+                                    <div class="flex items-center space-x-2">
+                                        <div class="w-20 h-2 bg-slate-100 rounded-full overflow-hidden">
+                                            <div class="h-full rounded-full {% if signals[key + '_over25_rate'] > 55 %}bg-green-500{% elif signals[key + '_over25_rate'] > 45 %}bg-yellow-500{% else %}bg-blue-500{% endif %}"
+                                                 style="width: {{ signals[key + '_over25_rate']|default(50) }}%"></div>
+                                        </div>
+                                        <span class="font-mono font-bold text-slate-800 w-10 text-right">{{ signals[key + '_over25_rate']|default('—') }}%</span>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                                <p class="text-[10px] text-slate-400 mt-1">% of matches with 3+ goals</p>
+                            </div>
+                        </div>
+                        {% endif %}
+
                     </div>
                 </div>
             </div>

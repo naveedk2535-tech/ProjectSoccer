@@ -1,9 +1,11 @@
 """
 XGBoost prediction model.
 
-Trains on 20 features extracted from match data:
-Elo ratings, form, attack/defence strengths, days rest,
-H2H records, referee tendencies, seasonality, sentiment, streaks.
+Trains on 40+ features extracted from match data:
+Elo ratings, form (including exponential decay), attack/defence strengths,
+days rest, H2H records, referee tendencies, seasonality, sentiment, streaks,
+corners, fouls/discipline, Pinnacle implied probabilities, over/under rates,
+rolling 10-match metrics, and regression-to-mean conversion luck indicators.
 """
 import logging
 import json
@@ -241,6 +243,109 @@ def extract_features(home_team, away_team, league="PL", match_date=None):
                     features["odds_movement"] = round(earliest_odds - latest_odds, 4)
         except Exception:
             features["odds_movement"] = 0.0
+
+    # --- Enhancement 1: Corners as XGBoost Features ---
+    for team, prefix in [(home_team, "home"), (away_team, "away")]:
+        try:
+            corners = db.fetch_one(
+                """SELECT AVG(CASE WHEN home_team = ? THEN home_corners
+                               WHEN away_team = ? THEN away_corners END) as avg_corners
+                   FROM matches WHERE league = ? AND (home_team = ? OR away_team = ?)
+                   AND home_corners IS NOT NULL""",
+                [team, team, league, team, team]
+            )
+            features[f"{prefix}_avg_corners"] = round(corners["avg_corners"], 1) if corners and corners["avg_corners"] else 5.0
+        except Exception:
+            features[f"{prefix}_avg_corners"] = 5.0
+
+    # --- Enhancement 2: Fouls & Discipline Features ---
+    for team, prefix in [(home_team, "home"), (away_team, "away")]:
+        try:
+            discipline = db.fetch_one(
+                """SELECT AVG(CASE WHEN home_team = ? THEN home_fouls WHEN away_team = ? THEN away_fouls END) as avg_fouls,
+                          AVG(CASE WHEN home_team = ? THEN home_yellows WHEN away_team = ? THEN away_yellows END) as avg_yellows
+                   FROM matches WHERE league = ? AND (home_team = ? OR away_team = ?)
+                   AND home_fouls IS NOT NULL""",
+                [team, team, team, team, league, team, team]
+            )
+            features[f"{prefix}_avg_fouls"] = round(discipline["avg_fouls"], 1) if discipline and discipline["avg_fouls"] else 12.0
+            features[f"{prefix}_avg_yellows"] = round(discipline["avg_yellows"], 1) if discipline and discipline["avg_yellows"] else 1.5
+        except Exception:
+            features[f"{prefix}_avg_fouls"] = 12.0
+            features[f"{prefix}_avg_yellows"] = 1.5
+
+    # --- Enhancement 3: Historical Pinnacle Odds as Features ---
+    for team, prefix, side in [(home_team, "home", "home"), (away_team, "away", "away")]:
+        try:
+            pin = db.fetch_one(
+                f"""SELECT AVG(1.0 / pinnacle_{side}) as avg_implied
+                   FROM matches WHERE league = ? AND {side}_team = ?
+                   AND pinnacle_{side} IS NOT NULL AND pinnacle_{side} > 1""",
+                [league, team]
+            )
+            features[f"{prefix}_pinnacle_strength"] = round(pin["avg_implied"], 4) if pin and pin["avg_implied"] else 0.33
+        except Exception:
+            features[f"{prefix}_pinnacle_strength"] = 0.33
+    features["market_spread"] = features["home_pinnacle_strength"] - features["away_pinnacle_strength"]
+
+    # --- Enhancement 4: Over/Under 2.5 Implied Rate ---
+    for team, prefix in [(home_team, "home"), (away_team, "away")]:
+        try:
+            ou = db.fetch_one(
+                """SELECT AVG(CASE WHEN (ft_home_goals + ft_away_goals) > 2 THEN 1.0 ELSE 0.0 END) as over25_rate
+                   FROM matches WHERE league = ? AND (home_team = ? OR away_team = ?)
+                   AND ft_home_goals IS NOT NULL""",
+                [league, team, team]
+            )
+            features[f"{prefix}_over25_rate"] = round(ou["over25_rate"], 3) if ou and ou["over25_rate"] else 0.50
+        except Exception:
+            features[f"{prefix}_over25_rate"] = 0.50
+
+    # --- Enhancement 5: Exponential Decay Form from Elo ---
+    features["home_form5_decay"] = home_r.get("form_last5_decay", 1.5)
+    features["away_form5_decay"] = away_r.get("form_last5_decay", 1.5)
+
+    # --- Enhancement 6: Rolling 10-Match Metrics ---
+    for team, prefix in [(home_team, "home"), (away_team, "away")]:
+        try:
+            rolling = db.fetch_all(
+                """SELECT ft_home_goals, ft_away_goals, home_team
+                   FROM matches WHERE league = ? AND (home_team = ? OR away_team = ?)
+                   AND ft_home_goals IS NOT NULL
+                   ORDER BY match_date DESC LIMIT 10""",
+                [league, team, team]
+            )
+            if rolling and len(rolling) >= 3:
+                scored = sum(r["ft_home_goals"] if r["home_team"] == team else r["ft_away_goals"] for r in rolling)
+                conceded = sum(r["ft_away_goals"] if r["home_team"] == team else r["ft_home_goals"] for r in rolling)
+                features[f"{prefix}_rolling10_scored"] = round(scored / len(rolling), 2)
+                features[f"{prefix}_rolling10_conceded"] = round(conceded / len(rolling), 2)
+            else:
+                features[f"{prefix}_rolling10_scored"] = 1.3
+                features[f"{prefix}_rolling10_conceded"] = 1.3
+        except Exception:
+            features[f"{prefix}_rolling10_scored"] = 1.3
+            features[f"{prefix}_rolling10_conceded"] = 1.3
+
+    # --- Enhancement 7: Regression to Mean Indicator ---
+    for team, prefix in [(home_team, "home"), (away_team, "away")]:
+        try:
+            reg = db.fetch_one(
+                """SELECT AVG(CASE WHEN home_team = ? THEN ft_home_goals WHEN away_team = ? THEN ft_away_goals END) as avg_goals,
+                          AVG(CASE WHEN home_team = ? THEN home_shots_target WHEN away_team = ? THEN away_shots_target END) as avg_sot
+                   FROM matches WHERE league = ? AND (home_team = ? OR away_team = ?)
+                   AND home_shots_target IS NOT NULL""",
+                [team, team, team, team, league, team, team]
+            )
+            if reg and reg["avg_goals"] and reg["avg_sot"] and reg["avg_sot"] > 0:
+                # conversion_rate: goals per shot on target. League avg is ~0.30
+                conversion = reg["avg_goals"] / reg["avg_sot"]
+                # deviation from league average conversion (0.30)
+                features[f"{prefix}_conversion_luck"] = round(conversion - 0.30, 3)
+            else:
+                features[f"{prefix}_conversion_luck"] = 0.0
+        except Exception:
+            features[f"{prefix}_conversion_luck"] = 0.0
 
     return features
 

@@ -146,6 +146,21 @@ def build_ratings(league="PL"):
     for team, data in ratings.items():
         recent = data["results"][-5:] if len(data["results"]) >= 5 else data["results"]
         data["form_last5"] = sum(3 if r == "H" else (1 if r == "D" else 0) for r in recent)
+
+        # Exponential decay form: most recent = weight 1.0, then 0.8, 0.6, 0.4, 0.2
+        decay_weights = [0.2, 0.4, 0.6, 0.8, 1.0]  # oldest to newest
+        decay_recent = data["results"][-5:] if len(data["results"]) >= 5 else data["results"]
+        if len(decay_recent) < 5:
+            decay_weights_used = decay_weights[-len(decay_recent):] if decay_recent else []
+        else:
+            decay_weights_used = decay_weights
+        if decay_recent and decay_weights_used:
+            data["form_last5_decay"] = sum(
+                (3 if r == "H" else (1 if r == "D" else 0)) * w
+                for r, w in zip(decay_recent, decay_weights_used)
+            ) / sum(decay_weights_used)  # normalize to 0-3 scale
+        else:
+            data["form_last5_decay"] = 1.5  # neutral default
         data["form_last10"] = sum(
             3 if r == "H" else (1 if r == "D" else 0)
             for r in (data["results"][-10:] if len(data["results"]) >= 10 else data["results"])
