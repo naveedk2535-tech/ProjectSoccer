@@ -140,8 +140,8 @@ def _analyze_sentiment(texts):
 
 def fetch_team_sentiment(team, league="PL"):
     """Fetch and score Reddit sentiment for a specific team."""
-    cache_key = f"reddit_{team.replace(' ', '_')}_{datetime.utcnow().strftime('%Y%m%d_%H')}"
-    cached = check_cache(cache_key, 21600)  # 6 hour cache — allows 4 scans/day
+    cache_key = f"reddit_{team.replace(' ', '_')}_{datetime.utcnow().strftime('%Y%m%d')}"
+    cached = check_cache(cache_key, 43200)  # 12 hour cache — allows 2 scans/day
     if cached:
         return cached
 
@@ -157,16 +157,14 @@ def fetch_team_sentiment(team, league="PL"):
 
     texts = []
     try:
-        for sub_name in subreddits[:1]:  # only primary subreddit to save API calls
+        import time as _time
+        for sub_name in subreddits[:1]:  # only primary subreddit
             subreddit = reddit.subreddit(sub_name)
             for term in search_terms[:1]:  # only first search term
-                for post in subreddit.search(term, time_filter="week", limit=5):
+                for post in subreddit.search(term, time_filter="week", limit=3):
                     texts.append(post.title)
-                    if post.selftext:
-                        texts.append(post.selftext[:300])
-                    # Skip comments — titles are enough for sentiment
+            _time.sleep(1)  # 1 second delay between teams to avoid Reddit throttling
 
-        # rate limiting handled at bulk level
     except Exception as e:
         logger.error("Reddit fetch failed for %s: %s", team, e)
         return None
