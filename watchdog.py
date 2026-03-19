@@ -399,6 +399,176 @@ def check_prediction_sums():
         return make_result("Prediction Sums", "model", "warn", str(e))
 
 
+def check_sentiment_freshness():
+    """Check that sentiment data exists and is recent."""
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        # Check each enabled league
+        leagues_with_data = 0
+        leagues_stale = 0
+        details = []
+        cutoff = (datetime.now(timezone.utc) - timedelta(days=2)).strftime("%Y-%m-%d")
+
+        for league in ["PL", "PD", "BL1"]:
+            row = conn.execute(
+                "SELECT COUNT(DISTINCT team) as teams, MAX(score_date) as latest "
+                "FROM sentiment WHERE league = ?", (league,)
+            ).fetchone()
+            teams = row[0] if row else 0
+            latest = row[1] if row else None
+
+            if teams == 0:
+                details.append(f"{league}: no data")
+            elif latest and latest < cutoff:
+                leagues_stale += 1
+                details.append(f"{league}: {teams} teams, stale (last: {latest})")
+            else:
+                leagues_with_data += 1
+                details.append(f"{league}: {teams} teams, fresh")
+
+        conn.close()
+
+        if leagues_with_data == 0:
+            return make_result("Sentiment Data", "data", "warn",
+                               f"No fresh sentiment data. {'; '.join(details)}")
+        if leagues_stale > 0:
+            return make_result("Sentiment Data", "data", "warn",
+                               f"{leagues_stale} league(s) have stale sentiment. {'; '.join(details)}")
+        return make_result("Sentiment Data", "data", "pass",
+                           f"Sentiment data fresh. {'; '.join(details)}")
+    except Exception as e:
+        return make_result("Sentiment Data", "data", "warn", str(e))
+
+
+def check_api_call_failures():
+    """Check for recent API call failures (non-200 responses)."""
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        cutoff = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
+        failures = conn.execute(
+            "SELECT api_name, COUNT(*) as cnt FROM api_calls "
+            "WHERE called_at > ? AND response_code != 200 AND response_code IS NOT NULL "
+            "GROUP BY api_name", (cutoff,)
+        ).fetchall()
+        conn.close()
+
+        if not failures:
+            return make_result("API Call Failures", "api", "pass",
+                               "No API failures in last 24 hours.")
+
+        fail_details = [f"{row[0]}: {row[1]} failures" for row in failures]
+        total = sum(row[1] for row in failures)
+        if total > 10:
+            return make_result("API Call Failures", "api", "critical",
+                               f"{total} API failures in 24h. {', '.join(fail_details)}")
+        return make_result("API Call Failures", "api", "warn",
+                           f"{total} API failures in 24h. {', '.join(fail_details)}")
+    except Exception as e:
+        return make_result("API Call Failures", "api", "warn", str(e))
+
+
+def check_rate_limit_exhaustion():
+    """Check if any API rate limits are currently exhausted."""
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        now = datetime.now(timezone.utc)
+        exhausted = []
+
+        limits = {
+            "football_data_org": {"calls": 10, "period": 60},
+            "odds_api": {"calls": 12, "period": 86400},
+            "reddit": {"calls": 6, "period": 86400},
+            "newsapi": {"calls": 6, "period": 86400},
+            "football_data_uk": {"calls": 3, "period": 86400},
+        }
+
+        for api_name, limit in limits.items():
+            cutoff = (now - timedelta(seconds=limit["period"])).isoformat()
+            row = conn.execute(
+                "SELECT COUNT(*) FROM api_calls WHERE api_name = ? AND called_at > ?",
+                (api_name, cutoff)
+            ).fetchone()
+            used = row[0] if row else 0
+            if used >= limit["calls"]:
+                exhausted.append(f"{api_name}: {used}/{limit['calls']}")
+
+        conn.close()
+
+        if not exhausted:
+            return make_result("Rate Limits", "api", "pass",
+                               "All API rate limits have capacity.")
+        if len(exhausted) >= 3:
+            return make_result("Rate Limits", "api", "warn",
+                               f"{len(exhausted)} APIs exhausted: {', '.join(exhausted)}")
+        return make_result("Rate Limits", "api", "pass",
+                           f"Some APIs at limit (normal): {', '.join(exhausted)}")
+    except Exception as e:
+        return make_result("Rate Limits", "api", "warn", str(e))
+
+
+def check_data_freshness():
+    """Check that key data sources have been updated recently."""
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        cutoff_24h = (datetime.now(timezone.utc) - timedelta(hours=48)).isoformat()
+        stale = []
+
+        sources = {
+            "football_data_org": "Fixtures & Standings",
+            "odds_api": "Bookmaker Odds",
+        }
+
+        for api_name, label in sources.items():
+            row = conn.execute(
+                "SELECT MAX(called_at) as latest FROM api_calls "
+                "WHERE api_name = ? AND cached = 0", (api_name,)
+            ).fetchone()
+            latest = row[0] if row and row[0] else None
+            if not latest or latest < cutoff_24h:
+                stale.append(f"{label}: {'never' if not latest else latest[:16]}")
+
+        conn.close()
+
+        if not stale:
+            return make_result("Data Freshness", "data", "pass",
+                               "All key data sources updated within 48 hours.")
+        return make_result("Data Freshness", "data", "warn",
+                           f"Stale data sources: {'; '.join(stale)}")
+    except Exception as e:
+        return make_result("Data Freshness", "data", "warn", str(e))
+
+
+def check_tracker_accuracy():
+    """Check model tracker has settled predictions and report accuracy."""
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        settled = conn.execute(
+            "SELECT COUNT(*) FROM model_tracker WHERE status = 'settled'"
+        ).fetchone()[0]
+        pending = conn.execute(
+            "SELECT COUNT(*) FROM model_tracker WHERE status = 'pending'"
+        ).fetchone()[0]
+
+        if settled == 0:
+            conn.close()
+            return make_result("Model Tracker", "model", "pass",
+                               f"No settled predictions yet. {pending} pending.")
+
+        correct = conn.execute(
+            "SELECT COUNT(*) FROM model_tracker WHERE status = 'settled' AND top_pick_correct = 1"
+        ).fetchone()[0]
+        accuracy = correct / settled * 100
+        conn.close()
+
+        if accuracy < 30:
+            return make_result("Model Tracker", "model", "warn",
+                               f"Low accuracy: {accuracy:.0f}% ({correct}/{settled}). {pending} pending.")
+        return make_result("Model Tracker", "model", "pass",
+                           f"Accuracy: {accuracy:.0f}% ({correct}/{settled}). {pending} pending.")
+    except Exception as e:
+        return make_result("Model Tracker", "model", "warn", str(e))
+
+
 # ===== RUNNER ===============================================================
 
 def run_all_checks():
@@ -424,14 +594,19 @@ def run_all_checks():
     results.append(check_odds_count(cfg))
     results.append(check_count_drops(cfg))
     results.append(check_league_data())
+    results.append(check_sentiment_freshness())
+    results.append(check_data_freshness())
 
-    # API (returns list)
+    # API
     results.extend(check_api_keys())
+    results.append(check_api_call_failures())
+    results.append(check_rate_limit_exhaustion())
 
     # Model
     results.append(check_model_exists())
     results.append(check_model_staleness(cfg))
     results.append(check_prediction_sums())
+    results.append(check_tracker_accuracy())
 
     # Update last counts in config
     cfg["last_counts"] = {
