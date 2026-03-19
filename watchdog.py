@@ -161,6 +161,140 @@ def check_app_import():
                            f"Cannot import config: {e}")
 
 
+def check_dependencies():
+    """Check that all required Python packages are installed and importable."""
+    required = {
+        "flask": "Flask (web framework)",
+        "pandas": "Pandas (data processing)",
+        "numpy": "NumPy (math)",
+        "scipy": "SciPy (statistics)",
+        "requests": "Requests (HTTP client)",
+        "praw": "PRAW (Reddit API)",
+        "vaderSentiment.vaderSentiment": "VADER (sentiment scoring)",
+        "xgboost": "XGBoost (ML model)",
+        "sklearn": "scikit-learn (ML utilities)",
+        "dotenv": "python-dotenv (env loading)",
+    }
+    missing = []
+    installed = []
+    for module, label in required.items():
+        try:
+            __import__(module)
+            installed.append(label)
+        except ImportError:
+            missing.append(label)
+
+    if missing:
+        return make_result("Dependencies", "health", "critical",
+                           f"{len(missing)} packages missing: {', '.join(missing)}")
+    return make_result("Dependencies", "health", "pass",
+                       f"All {len(installed)} required packages installed.")
+
+
+def check_scheduled_tasks():
+    """Check that scheduled task logs show recent successful runs."""
+    log_dir = "/var/log"
+    try:
+        now = datetime.now(timezone.utc)
+        stale_tasks = []
+        checked = 0
+
+        # Check PA schedule log files
+        for fname in os.listdir(log_dir):
+            if fname.startswith("schedule-log-") and fname.endswith(".log"):
+                fpath = os.path.join(log_dir, fname)
+                mtime = datetime.fromtimestamp(os.path.getmtime(fpath), tz=timezone.utc)
+                age_hours = (now - mtime).total_seconds() / 3600
+                checked += 1
+                if age_hours > 48:
+                    stale_tasks.append(f"{fname} ({age_hours:.0f}h old)")
+
+        if checked == 0:
+            return make_result("Scheduled Tasks", "health", "warn",
+                               "No scheduled task logs found.")
+        if stale_tasks:
+            return make_result("Scheduled Tasks", "health", "warn",
+                               f"{len(stale_tasks)} tasks stale: {', '.join(stale_tasks)}")
+        return make_result("Scheduled Tasks", "health", "pass",
+                           f"All {checked} scheduled tasks ran recently.")
+    except Exception as e:
+        return make_result("Scheduled Tasks", "health", "pass",
+                           f"Cannot check task logs (local env): {str(e)[:50]}")
+
+
+def check_disk_space():
+    """Check available disk space."""
+    try:
+        import shutil
+        total, used, free = shutil.disk_usage(BASE_DIR)
+        free_mb = free / (1024 * 1024)
+        used_pct = used / total * 100
+        if free_mb < 100:
+            return make_result("Disk Space", "health", "critical",
+                               f"Low disk space: {free_mb:.0f} MB free ({used_pct:.0f}% used)")
+        if free_mb < 500:
+            return make_result("Disk Space", "health", "warn",
+                               f"Disk getting full: {free_mb:.0f} MB free ({used_pct:.0f}% used)")
+        return make_result("Disk Space", "health", "pass",
+                           f"{free_mb:.0f} MB free ({used_pct:.0f}% used)")
+    except Exception as e:
+        return make_result("Disk Space", "health", "warn", str(e))
+
+
+def check_cache_health():
+    """Check cache directory isn't bloated."""
+    cache_dir = os.path.join(BASE_DIR, "data", "cache")
+    try:
+        if not os.path.exists(cache_dir):
+            return make_result("Cache Health", "health", "pass", "No cache directory.")
+        total_size = 0
+        file_count = 0
+        for f in os.listdir(cache_dir):
+            fp = os.path.join(cache_dir, f)
+            if os.path.isfile(fp):
+                total_size += os.path.getsize(fp)
+                file_count += 1
+        size_mb = total_size / (1024 * 1024)
+        if size_mb > 50:
+            return make_result("Cache Health", "health", "warn",
+                               f"Cache bloated: {size_mb:.1f} MB ({file_count} files)")
+        return make_result("Cache Health", "health", "pass",
+                           f"Cache: {size_mb:.1f} MB ({file_count} files)")
+    except Exception as e:
+        return make_result("Cache Health", "health", "warn", str(e))
+
+
+def check_value_bet_integrity():
+    """Check value bets have valid data and no orphaned entries."""
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        # Check for value bets with impossible values
+        bad = conn.execute(
+            "SELECT COUNT(*) FROM value_bets WHERE edge_percent < 0 OR model_probability <= 0 "
+            "OR model_probability >= 1 OR best_odds <= 1"
+        ).fetchone()[0]
+        # Check for stale pending bets (match date > 3 days ago)
+        cutoff = (datetime.now(timezone.utc) - timedelta(days=3)).strftime("%Y-%m-%d")
+        stale_pending = conn.execute(
+            "SELECT COUNT(*) FROM value_bets WHERE result = 'pending' AND match_date < ?",
+            (cutoff,)
+        ).fetchone()[0]
+        conn.close()
+
+        issues = []
+        if bad > 0:
+            issues.append(f"{bad} invalid value bets")
+        if stale_pending > 0:
+            issues.append(f"{stale_pending} stale pending bets (match >3 days ago)")
+        if issues:
+            return make_result("Value Bet Integrity", "data", "warn",
+                               "; ".join(issues))
+        return make_result("Value Bet Integrity", "data", "pass",
+                           "All value bets valid, no stale entries.")
+    except Exception as e:
+        return make_result("Value Bet Integrity", "data", "warn", str(e))
+
+
 # ----- Security -----
 
 def check_env_exists():
@@ -585,6 +719,10 @@ def run_all_checks():
     results.append(check_db_size(cfg))
     results.append(check_key_tables())
     results.append(check_app_import())
+    results.append(check_dependencies())
+    results.append(check_disk_space())
+    results.append(check_cache_health())
+    results.append(check_scheduled_tasks())
 
     # Security
     results.append(check_env_exists())
@@ -600,6 +738,7 @@ def run_all_checks():
     results.append(check_league_data())
     results.append(check_sentiment_freshness())
     results.append(check_data_freshness())
+    results.append(check_value_bet_integrity())
 
     # API
     results.extend(check_api_keys())

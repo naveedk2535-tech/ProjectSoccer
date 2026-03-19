@@ -1,9 +1,9 @@
 {
-  "last_check": "2026-03-19T03:52:12Z",
+  "last_check": "2026-03-19T06:51:01Z",
   "overall_status": "warn",
-  "total_checks": 22,
-  "passed": 19,
-  "warnings": 3,
+  "total_checks": 27,
+  "passed": 23,
+  "warnings": 4,
   "critical": 0,
   "results": [
     {
@@ -11,154 +11,189 @@
       "category": "health",
       "status": "pass",
       "message": "Successfully connected to SQLite database.",
-      "timestamp": "2026-03-19T03:52:12Z"
+      "timestamp": "2026-03-19T06:50:59Z"
     },
     {
       "name": "Database Size",
       "category": "health",
       "status": "pass",
       "message": "Database size is 2.3 MB.",
-      "timestamp": "2026-03-19T03:52:12Z"
+      "timestamp": "2026-03-19T06:50:59Z"
     },
     {
       "name": "Key Tables",
       "category": "health",
       "status": "pass",
       "message": "All key tables exist and contain data.",
-      "timestamp": "2026-03-19T03:52:12Z"
+      "timestamp": "2026-03-19T06:50:59Z"
     },
     {
       "name": "App Import",
       "category": "health",
       "status": "pass",
       "message": "config module imports without errors.",
-      "timestamp": "2026-03-19T03:52:12Z"
+      "timestamp": "2026-03-19T06:50:59Z"
+    },
+    {
+      "name": "Dependencies",
+      "category": "health",
+      "status": "pass",
+      "message": "All 10 required packages installed.",
+      "timestamp": "2026-03-19T06:51:01Z"
+    },
+    {
+      "name": "Disk Space",
+      "category": "health",
+      "status": "pass",
+      "message": "213342 MB free (55% used)",
+      "timestamp": "2026-03-19T06:51:01Z"
+    },
+    {
+      "name": "Cache Health",
+      "category": "health",
+      "status": "pass",
+      "message": "Cache: 6.2 MB (57 files)",
+      "timestamp": "2026-03-19T06:51:01Z"
+    },
+    {
+      "name": "Scheduled Tasks",
+      "category": "health",
+      "status": "warn",
+      "message": "No scheduled task logs found.",
+      "timestamp": "2026-03-19T06:51:01Z"
     },
     {
       "name": ".env File",
       "category": "security",
       "status": "pass",
       "message": ".env file exists.",
-      "timestamp": "2026-03-19T03:52:12Z"
+      "timestamp": "2026-03-19T06:51:01Z"
     },
     {
       "name": ".gitignore",
       "category": "security",
       "status": "pass",
       "message": ".env is listed in .gitignore.",
-      "timestamp": "2026-03-19T03:52:12Z"
+      "timestamp": "2026-03-19T06:51:01Z"
     },
     {
       "name": "Hardcoded Keys",
       "category": "security",
       "status": "pass",
       "message": "No hardcoded API key patterns detected.",
-      "timestamp": "2026-03-19T03:52:12Z"
+      "timestamp": "2026-03-19T06:51:01Z"
     },
     {
       "name": "Suspicious Files",
       "category": "security",
       "status": "pass",
       "message": "No suspicious .bak/.tmp/~ files found.",
-      "timestamp": "2026-03-19T03:52:12Z"
+      "timestamp": "2026-03-19T06:51:01Z"
     },
     {
       "name": "Matches Count",
       "category": "data",
       "status": "pass",
       "message": "matches table has 2954 rows.",
-      "timestamp": "2026-03-19T03:52:12Z"
+      "timestamp": "2026-03-19T06:51:01Z"
     },
     {
       "name": "Predictions Count",
       "category": "data",
       "status": "pass",
       "message": "predictions table has 29 rows.",
-      "timestamp": "2026-03-19T03:52:12Z"
+      "timestamp": "2026-03-19T06:51:01Z"
     },
     {
       "name": "Odds Count",
       "category": "data",
       "status": "pass",
       "message": "odds table has 1839 rows.",
-      "timestamp": "2026-03-19T03:52:12Z"
+      "timestamp": "2026-03-19T06:51:01Z"
     },
     {
       "name": "Count Drops",
       "category": "data",
       "status": "pass",
       "message": "No sudden count drops detected.",
-      "timestamp": "2026-03-19T03:52:12Z"
+      "timestamp": "2026-03-19T06:51:01Z"
     },
     {
       "name": "League Data",
       "category": "data",
       "status": "pass",
       "message": "All 3 enabled leagues have data.",
-      "timestamp": "2026-03-19T03:52:12Z"
+      "timestamp": "2026-03-19T06:51:01Z"
     },
     {
       "name": "Sentiment Data",
       "category": "data",
       "status": "warn",
       "message": "No fresh sentiment data. PL: 23 teams, stale (last: 2026-03-16); PD: no data; BL1: no data",
-      "timestamp": "2026-03-19T03:52:12Z"
+      "timestamp": "2026-03-19T06:51:01Z"
     },
     {
       "name": "Data Freshness",
       "category": "data",
       "status": "warn",
       "message": "Stale data sources: Fixtures & Standings: 2026-03-16T14:51; Bookmaker Odds: never",
-      "timestamp": "2026-03-19T03:52:12Z"
+      "timestamp": "2026-03-19T06:51:01Z"
+    },
+    {
+      "name": "Value Bet Integrity",
+      "category": "data",
+      "status": "pass",
+      "message": "All value bets valid, no stale entries.",
+      "timestamp": "2026-03-19T06:51:01Z"
     },
     {
       "name": "API Keys Present",
       "category": "api",
       "status": "pass",
       "message": "All 5 required API keys are set.",
-      "timestamp": "2026-03-19T03:52:12Z"
+      "timestamp": "2026-03-19T06:51:01Z"
     },
     {
       "name": "API Call Failures",
       "category": "api",
       "status": "pass",
       "message": "No API failures in last 24 hours.",
-      "timestamp": "2026-03-19T03:52:12Z"
+      "timestamp": "2026-03-19T06:51:01Z"
     },
     {
       "name": "Rate Limits",
       "category": "api",
       "status": "pass",
       "message": "All API rate limits have capacity.",
-      "timestamp": "2026-03-19T03:52:12Z"
+      "timestamp": "2026-03-19T06:51:01Z"
     },
     {
       "name": "XGBoost Model File",
       "category": "model",
       "status": "pass",
       "message": "XGBoost model file exists.",
-      "timestamp": "2026-03-19T03:52:12Z"
+      "timestamp": "2026-03-19T06:51:01Z"
     },
     {
       "name": "Model Freshness",
       "category": "model",
       "status": "pass",
-      "message": "Model is 2.1 days old.",
-      "timestamp": "2026-03-19T03:52:12Z"
+      "message": "Model is 2.3 days old.",
+      "timestamp": "2026-03-19T06:51:01Z"
     },
     {
       "name": "Prediction Sums",
       "category": "model",
       "status": "pass",
       "message": "Recent predictions sum to ~1.0.",
-      "timestamp": "2026-03-19T03:52:12Z"
+      "timestamp": "2026-03-19T06:51:01Z"
     },
     {
       "name": "Model Tracker",
       "category": "model",
       "status": "warn",
       "message": "Low accuracy: 0% (0/2). 27 pending.",
-      "timestamp": "2026-03-19T03:52:12Z"
+      "timestamp": "2026-03-19T06:51:01Z"
     }
   ]
 }
