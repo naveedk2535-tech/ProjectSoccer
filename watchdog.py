@@ -681,12 +681,13 @@ def main():
           f"({summary['passed']} pass, {summary['warnings']} warn, "
           f"{summary['critical']} critical)")
 
-    # Send email alert if issues found
-    if overall in ("warn", "critical"):
+    # Send email alert ONLY for critical issues (not warnings)
+    # Warnings are logged and visible on the Watchdog tab
+    if overall == "critical":
         try:
             from data.email_util import send_watchdog_alert
             send_watchdog_alert(overall, results,
-                f"{summary['warnings']} warnings, {summary['critical']} critical issues found")
+                f"CRITICAL: {summary['critical']} critical issues found")
         except Exception as e:
             print(f"  Email alert failed: {e}")
 
