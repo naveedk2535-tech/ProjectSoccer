@@ -5,8 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login — ProjectSoccer</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap');
+        [x-cloak] { display: none !important; }
         body { font-family: 'Inter', sans-serif; }
         .field-pattern {
             background-image:
@@ -39,11 +41,10 @@
             </div>
             {% endif %}
 
-            <form method="POST" class="space-y-5" x-data="{ username: '', showForgot: false, resetSent: false, resetError: '' }">
+            <form method="POST" class="space-y-5" x-data="{ showForgot: false, resetSent: false, resetError: '' }">
                 <div>
                     <label class="block text-xs text-gray-400 uppercase tracking-wider mb-2">Username</label>
-                    <input type="text" name="username" required autofocus x-model="username"
-                           @input="showForgot = (username.toLowerCase() === 'forgotpassword')"
+                    <input type="text" name="username" required autofocus
                            class="w-full px-4 py-3 rounded-xl bg-[#0a0e17] border border-gray-700 text-white placeholder-gray-600 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 focus:outline-none transition"
                            placeholder="Enter username">
                 </div>
@@ -58,8 +59,16 @@
                     Sign In
                 </button>
 
-                <!-- Forgot Password — only appears when username = "forgotpassword" -->
-                <div x-show="showForgot" x-cloak x-transition class="mt-4 bg-[#0a0e17] border border-gray-700 rounded-xl p-4">
+                <!-- Forgot Password Toggle -->
+                <div class="text-center">
+                    <button type="button" @click="showForgot = !showForgot"
+                            class="text-xs text-gray-500 hover:text-emerald-400 transition">
+                        Forgot password?
+                    </button>
+                </div>
+
+                <!-- Forgot Password Form (expandable) -->
+                <div x-show="showForgot" x-cloak x-transition.duration.200ms class="bg-[#0a0e17] border border-gray-700 rounded-xl p-4" style="display: none;">
                     <p class="text-xs text-gray-400 mb-3">Enter your username to receive a password reset email:</p>
                     <div class="flex space-x-2" x-data="{ resetUser: '' }">
                         <input type="text" x-model="resetUser" placeholder="Your username"
@@ -79,8 +88,8 @@
                             Reset
                         </button>
                     </div>
-                    <p x-show="resetSent" x-cloak class="text-emerald-400 text-xs mt-2">Password reset email sent! Check your inbox.</p>
-                    <p x-show="resetError" x-cloak class="text-red-400 text-xs mt-2" x-text="resetError"></p>
+                    <p x-show="resetSent" style="display: none;" class="text-emerald-400 text-xs mt-2">Password reset email sent! Check your inbox.</p>
+                    <p x-show="resetError" style="display: none;" class="text-red-400 text-xs mt-2" x-text="resetError"></p>
                 </div>
             </form>
         </div>
